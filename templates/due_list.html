@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-calendar-check text-success me-2"></i> Smart Maintenance Due List</h1>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Task ID</th>
+                    <th>Description</th>
+                    <th>Interval limit</th>
+                    <th>Time Remaining</th>
+                    <th>Status</th>
+                    <th>Digital Sign-Off</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proj in projections %}
+                <tr>
+                    <td><span class="badge badge--neutral">{{ proj.registration }}</span></td>
+                    <td class="fw-bold">{{ proj.task_id }}</td>
+                    <td>{{ proj.task_name }}</td>
+                    <td>{{ proj.interval_hours }} Hrs / {{ proj.interval_cycles }} Cyc</td>
+                    
+                    {% if proj.status == 'COMPLETED' %}
+                        <td class="text-muted">--</td>
+                    {% else %}
+                        <td class="fw-bold">{{ proj.remaining }}</td>
+                    {% endif %}
+                    
+                    <td>
+                        {% if proj.status == 'OVERDUE' %}
+                            <span class="badge badge--danger"><i class="bi bi-exclamation-triangle"></i> OVERDUE</span>
+                        {% elif proj.status == 'DUE SOON' %}
+                            <span class="badge badge--warning"><i class="bi bi-clock-history"></i> DUE SOON</span>
+                        {% elif proj.status == 'COMPLETED' %}
+                            <span class="badge badge--info"><i class="bi bi-check2-all"></i> COMPLETED</span>
+                        {% else %}
+                            <span class="badge badge--success"><i class="bi bi-check-circle"></i> GOOD</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {% if proj.status == 'OVERDUE' or proj.status == 'DUE SOON' %}
+                            <form action="{{ url_for('sign_off_due', registration=proj.registration, task_id=proj.task_id) }}" method="POST" class="d-flex gap-2 m-0">
+                                <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                    <option value="" disabled selected>Select Engineer...</option>
+                                    {% for eng in engineers %}
+                                        <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn--success btn--sm fw-bold">Sign</button>
+                            </form>
+                        {% elif proj.status == 'COMPLETED' %}
+                            <span class="text-info fw-bold"><i class="bi bi-shield-check"></i> Verified in Log</span>
+                        {% else %}
+                            <span class="text-muted"><i class="bi bi-dash"></i> Action Not Required</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

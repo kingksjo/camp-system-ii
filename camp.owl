@@ -1,0 +1,3685 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xml:base="http://www.semanticweb.org/dell/ontologies/2025/11/MyCampSystem"
+         xmlns="http://www.semanticweb.org/dell/ontologies/2025/11/MyCampSystem#"
+         xmlns:swrl="http://www.w3.org/2003/11/swrl#">
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/MyCampSystem">
+  <rdfs:comment xml:lang="en">this ontology is for an aircraft mainatenance programme 
+</rdfs:comment>
+</owl:Ontology>
+
+<owl:ObjectProperty rdf:about="#affectsComponents">
+  <rdfs:domain rdf:resource="#Fault"/>
+  <rdfs:range rdf:resource="#SensorData"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <rdfs:comment xml:lang="en">Links a fault to the aircraft component it impacts</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#authorizedBy">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#RegulatoryRequirement"/>
+  <rdfs:range rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:comment xml:lang="en">Indicates that a maintenance activity is authorized by a regulatory requirement or document</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#compliesWith">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#RegulatoryRequirement"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Relates an aircraft, maintenance process, or component to a regulatory requirement or directive that it satisfies.
+
+</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#detectedBy">
+  <rdfs:domain rdf:resource="#Fault"/>
+  <rdfs:range rdf:resource="#SensorData"/>
+  <rdfs:comment xml:lang="en">Indicates the sensor data type used to detect or identify a fault.</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#documentsRequirement">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#RegulatoryRequirement"/>
+  <rdfs:domain rdf:resource="#RegulatoryRequirement"/>
+  <rdfs:range rdf:resource="#MantenanceDocument"/>
+  <rdfs:comment xml:lang="en">Links a maintenance document to the regulatory requirement it supports or explain</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#followsProcedure">
+  <rdfs:range rdf:resource="#MaintenanceProcedure"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:comment xml:lang="en">Indicates that a maintenance process is carried out according to a defined maintenance document or procedure.</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#generatedBy">
+  <rdfs:range rdf:resource="#Aircraft"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <rdfs:domain rdf:resource="#SensorData"/>
+  <rdfs:comment xml:lang="en">Links sensor data to the aircraft or component that produced it</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasComponent">
+  <rdfs:domain rdf:resource="#Aircraft"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <rdfs:comment xml:lang="en">Associates an aircraft with one or more aircraft components that are installed on it</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasFault">
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="#Fault"/>
+  <rdfs:comment xml:lang="en">Links an aircraft or aircraft component to a fault that affects it</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasOperationalMetric">
+  <rdfs:domain rdf:resource="#FlightOperation"/>
+  <rdfs:range rdf:resource="#OperationalMetric"/>
+  <rdfs:domain rdf:resource="#Aircraft"/>
+  <rdfs:comment xml:lang="en">Associates a flight operation with recorded operational metrics</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasRegulatoryRequirement">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#RegulatoryRequirement"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Relates an aircraft, maintenance process, or component to a regulatory requirement or directive that it satisfies.
+
+</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasSensorData">
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="#SensorData"/>
+  <rdfs:comment xml:lang="en">Connects an aircraft or aircraft component to sensor data generated during operation or monitoring</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#performedBy">
+  <rdfs:range rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:comment xml:lang="en">Indicates the maintenance personnel responsible for performing a maintenance process or task</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#performedOn">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#Part"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <rdfs:comment xml:lang="en">Identifies the aircraft or aircraft component on which a maintenance process is performed</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#replacsPart">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#Part"/>
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:comment xml:lang="en">Indicates that a maintenance process replaces an existing part with another</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#requiresPart">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#Part"/>
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:comment xml:lang="en">Specifies the aircraft part required to complete a maintenance process or task</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#requiresTask">
+  <rdfs:domain rdf:resource="#MaintenancePlan"/>
+  <rdfs:range rdf:resource="#MaintenanceSchedule"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#MaintenanceTask"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#requiresTools">
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#MaintenanceTools"/>
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:comment xml:lang="en">Identifies the tools required to perform a maintenance process or task.</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#resultsIn">
+  <rdfs:range rdf:resource="#Fault"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#MaintenanceRecord"/>
+  <rdfs:comment xml:lang="en">Indicates the outcome of a maintenance process, such as fault resolution or component replacement</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#scheduledAfterFlightCycles">
+  <rdfs:range rdf:resource="#FlightCycles"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:domain rdf:resource="#MaintenanceSchedule"/>
+  <rdfs:comment xml:lang="en">Indicates that a maintenance process is scheduled once a specified number of flight cycles has been reached</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#scheduledAfterFlightHours">
+  <rdfs:range rdf:resource="#FlightHours"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:domain rdf:resource="#MaintenanceSchedule"/>
+  <rdfs:comment xml:lang="en">Indicates that a maintenance process is scheduled once a specified number of flight hours has been reached.</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#scheduledIn">
+  <rdfs:range rdf:resource="#FlightOperation"/>
+  <rdfs:domain rdf:resource="#MaintenanceProcess"/>
+  <rdfs:range rdf:resource="#MaintenanceSchedule"/>
+  <rdfs:comment xml:lang="en">Specifies the operational or maintenance time window in which a maintenance process is planned to occur</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#triggersMaintenance">
+  <rdfs:domain rdf:resource="#Fault"/>
+  <rdfs:range rdf:resource="#MaintenanceActivity"/>
+  <rdfs:range rdf:resource="#MaintenanceProcess"/>
+  <rdfs:comment xml:lang="en">Indicates that a detected fault or condition initiates a required maintenance process</rdfs:comment>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#requiresMaintenance"/>
+
+<owl:ObjectProperty rdf:about="#usesTool"/>
+
+<owl:ObjectProperty rdf:about="#followsDocument"/>
+
+<owl:ObjectProperty rdf:about="#monitors"/>
+
+<owl:ObjectProperty rdf:about="#producesIndicator">
+  <rdfs:domain rdf:resource="#SensorData"/>
+  <rdfs:range rdf:resource="#ConditionIndicator"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#indicatesFault">
+  <rdfs:domain rdf:resource="#ConditionIndicator"/>
+  <rdfs:range rdf:resource="#Fault"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#resultsInAssessment"/>
+
+<owl:ObjectProperty rdf:about="#hasFlightStatus">
+  <rdfs:domain rdf:resource="#Aircraft"/>
+  <rdfs:range rdf:resource="#AircraftStatus"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasAMMReference">
+  <rdfs:domain rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <rdfs:range rdf:resource="#AMM_Chapter"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#isPartOf">
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <owl:inverseOf rdf:resource="#hasPart"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasPart">
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="#AircraftComponent"/>
+  <owl:inverseOf rdf:resource="#isPartOf"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#requiresLicense">
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="#LicenseType"/>
+</owl:ObjectProperty>
+
+<owl:DatatypeProperty rdf:about="#hasDateperformed">
+  <rdfs:domain rdf:resource="#MaintenanceRecord"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+  <rdfs:comment xml:lang="en">date of maintenance</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasDescription">
+  <rdfs:domain rdf:resource="#MaintenanceProcedure"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  <rdfs:comment xml:lang="en">procedure text</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasFlightCycles">
+  <rdfs:domain rdf:resource="#Aircraft"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  <rdfs:comment xml:lang="en">total flight cycles the aircraft has undergone
+</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasFlightHours">
+  <rdfs:domain rdf:resource="#Aircraft"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">total flight hours</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasIntervalHours">
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">interval between required checks</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasTechnicianID">
+  <rdfs:domain rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  <rdfs:comment xml:lang="en">ID number/string or liscense number
+</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#thresholdHours">
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  <rdfs:comment xml:lang="en">rule threshold trigger</rdfs:comment>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#faultSeverity">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#inspectionDate">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#sensorValue">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#temperatureThreshold">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#documentNumber">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#technicianLicense">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#indicatorValue">
+  <rdfs:domain rdf:resource="#ConditionIndicator"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#assessmentStatus">
+  <rdfs:domain rdf:resource="#HealthAssessment"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#recommendationText">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#MaintenanceRecommendation"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasReadingValue">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#taskFlightHoursLimit">
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#taskFlightCyclesLimit">
+  <rdfs:domain rdf:resource="#MaintenanceTask"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#currentFlightCycles">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#currentFlightHours">
+  <rdfs:domain rdf:resource="#Component"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#cyclesSinceLastNDT">
+  <rdfs:domain rdf:resource="#Component"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#timeSinceNew">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#cyclesSinceNew">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasMaxCycles">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#AircraftComponent"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasRemainingDays">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#MEL_Deferral"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:AnnotationProperty rdf:about="#adreference"/>
+
+<owl:AnnotationProperty rdf:about="#ammReference"/>
+
+<owl:AnnotationProperty rdf:about="#effectivity"/>
+
+<owl:AnnotationProperty rdf:about="#estimatedManHours"/>
+
+<owl:AnnotationProperty rdf:about="#example"/>
+
+<owl:AnnotationProperty rdf:about="#ipcNumber"/>
+
+<owl:AnnotationProperty rdf:about="#referenceMetadata"/>
+
+<owl:AnnotationProperty rdf:about="#requiredCertification"/>
+
+<owl:AnnotationProperty rdf:about="#sbReference"/>
+
+<owl:AnnotationProperty rdf:about="#toolRequirementNote"/>
+
+<owl:Class rdf:about="#Fault">
+  <rdfs:label xml:lang="en">Fault
+</rdfs:label>
+  <rdfs:comment xml:lang="en">An abnormal condition requiring maintenance</rdfs:comment>
+  <example xml:lang="en">fuel leak</example>
+</owl:Class>
+
+<owl:Class rdf:about="#SensorData">
+  <rdfs:label xml:lang="en">SensorData</rdfs:label>
+  <rdfs:comment xml:lang="en">Recorded numerical or symbolic data generated by onboard sensors to monitor aircraft component health</rdfs:comment>
+  <example xml:lang="en">Vibration reading from N1 fan sensor.</example>
+</owl:Class>
+
+<owl:Class rdf:about="#AircraftComponent">
+  <rdfs:label xml:lang="en">AircraftComponent</rdfs:label>
+  <rdfs:comment xml:lang="en">A subsystem or replaceable unit</rdfs:comment>
+  <example xml:lang="en">Wing</example>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceProcess">
+  <rdfs:subClassOf rdf:resource="#Maintenance"/>
+  <rdfs:label xml:lang="en">MaintenanceProcess</rdfs:label>
+  <rdfs:comment xml:lang="en">High-level structured maintenance workflow</rdfs:comment>
+  <example xml:lang="en">engine overhaul</example>
+</owl:Class>
+
+<owl:Class rdf:about="#RegulatoryRequirement">
+  <rdfs:label xml:lang="en">RegulatoryRequirement</rdfs:label>
+  <rdfs:comment xml:lang="en">Airworthiness, maintenance, or safety rule mandated by aviation authority or OEM.</rdfs:comment>
+  <example xml:lang="en">EASA CS 25.571 Damage Tolerance</example>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenancePersonnel">
+  <rdfs:label xml:lang="en">MaintenancePersonnel</rdfs:label>
+  <rdfs:comment xml:lang="en">Human performing maintenance.</rdfs:comment>
+  <example xml:lang="en">level 3 technician</example>
+</owl:Class>
+
+<owl:Class rdf:about="#MantenanceDocument">
+  <rdfs:subClassOf rdf:resource="#RegulatoryRequirement"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceProcedure">
+  <rdfs:subClassOf rdf:resource="#MaintenanceProcess"/>
+  <rdfs:label xml:lang="en">MaintenanceProcedure</rdfs:label>
+  <rdfs:comment xml:lang="en">AMM Ch. 72–00</rdfs:comment>
+  <rdfs:comment xml:lang="en">Step-by-step instructions.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceTask">
+  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+  <rdfs:label xml:lang="en">MaintenanceTask</rdfs:label>
+  <rdfs:comment xml:lang="en">Smallest actionable maintenance unit.</rdfs:comment>
+  <example xml:lang="en">tighten bolt</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Aircraft">
+  <rdfs:label xml:lang="en">Aircraft</rdfs:label>
+  <example xml:lang="en">Boeing 737</example>
+  <rdfs:comment xml:lang="en">Represents the whole aircraft asse</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#FlightOperation">
+  <rdfs:label xml:lang="en">FlightOperation</rdfs:label>
+  <rdfs:comment xml:lang="en">Represents a completed operation.</rdfs:comment>
+  <example xml:lang="en">flight Lagos–Abuja</example>
+</owl:Class>
+
+<owl:Class rdf:about="#OperationalMetric">
+  <rdfs:subClassOf rdf:resource="#FlightOperation"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Part">
+  <rdfs:subClassOf rdf:resource="#MaintenanceResources"/>
+  <rdfs:label xml:lang="en">Part</rdfs:label>
+  <rdfs:comment xml:lang="en">A physical object used in maintenance activities for replacement, repair, or assembly of an aircraft component.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenancePlan">
+  <rdfs:subClassOf rdf:resource="#MaintenanceProcess"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceSchedule">
+  <rdfs:subClassOf rdf:resource="#MaintenanceProcess"/>
+  <rdfs:label xml:lang="en">MaintenanceSchedule</rdfs:label>
+  <rdfs:label xml:lang="en">Plan for periodic maintenance.</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceTools">
+  <rdfs:subClassOf rdf:resource="#MaintenanceResources"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceRecord">
+  <rdfs:subClassOf rdf:resource="#MaintenanceProcess"/>
+  <rdfs:label xml:lang="en">MaintenanceRecord</rdfs:label>
+  <rdfs:comment xml:lang="en">Evidence of performed work</rdfs:comment>
+  <example xml:lang="en">signed workcard</example>
+</owl:Class>
+
+<owl:Class rdf:about="#FlightCycles">
+  <rdfs:subClassOf rdf:resource="#OperationalMetric"/>
+  <rdfs:label xml:lang="en">FlightCycles</rdfs:label>
+  <example xml:lang="en">12,100 cycles</example>
+  <rdfs:comment xml:lang="en">Takeoff/landing cycle count.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#FlightHours">
+  <rdfs:subClassOf rdf:resource="#OperationalMetric"/>
+  <rdfs:label xml:lang="en">FlightHours</rdfs:label>
+  <example xml:lang="en">24,589 hours</example>
+  <rdfs:comment xml:lang="en">total Time airborne.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceActivity">
+  <rdfs:subClassOf rdf:resource="#MaintenanceProcess"/>
+  <rdfs:label xml:lang="en">MaintenanceActivity</rdfs:label>
+  <rdfs:comment xml:lang="en">Work performed as part of a process.</rdfs:comment>
+  <rdfs:comment xml:lang="en">engine inspection</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ConditionIndicator">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AircraftStatus">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AMM_Chapter">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#LicenseType">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#HealthAssessment">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceRecommendation">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Component">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MEL_Deferral">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Maintenance"/>
+
+<owl:Class rdf:about="#MaintenanceResources"/>
+
+<owl:Class rdf:about="#A-Check">
+  <rdfs:subClassOf rdf:resource="#MaintenanceSchedule"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AMM">
+  <rdfs:subClassOf rdf:resource="#MantenanceDocument"/>
+</owl:Class>
+
+<owl:Class rdf:about="#AirworthinessDirective">
+  <rdfs:subClassOf rdf:resource="#RegulatoryRequirement"/>
+</owl:Class>
+
+<owl:Class rdf:about="#B-Check">
+  <rdfs:subClassOf rdf:resource="#MaintenanceSchedule"/>
+</owl:Class>
+
+<owl:Class rdf:about="#C-Check">
+  <rdfs:subClassOf rdf:resource="#MaintenanceSchedule"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Calibration">
+  <rdfs:subClassOf rdf:resource="#MaintenanceTask"/>
+  <rdfs:label xml:lang="en">Calibration</rdfs:label>
+  <rdfs:comment xml:lang="en">Restoring system accuracy</rdfs:comment>
+  <example xml:lang="en">sensor recalibration</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Cleaning">
+  <rdfs:subClassOf rdf:resource="#MaintenanceTask"/>
+  <rdfs:label xml:lang="en">Cleaning
+</rdfs:label>
+  <rdfs:comment xml:lang="en">Removing contaminants/material</rdfs:comment>
+  <example xml:lang="en">compressor wash</example>
+</owl:Class>
+
+<owl:Class rdf:about="#CorrectiveMaintenancePlan">
+  <rdfs:subClassOf rdf:resource="#MaintenancePlan"/>
+</owl:Class>
+
+<owl:Class rdf:about="#DailyCheck">
+  <rdfs:subClassOf rdf:resource="#MaintenanceSchedule"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Engine">
+  <rdfs:subClassOf rdf:resource="#AircraftComponent"/>
+  <rdfs:label xml:lang="en">Engine</rdfs:label>
+  <example xml:lang="en">CFM56 engine</example>
+  <rdfs:comment xml:lang="en">Component providing thrust.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#EngineFault">
+  <rdfs:subClassOf rdf:resource="#Fault"/>
+  <rdfs:label xml:lang="en">EngineFault</rdfs:label>
+  <rdfs:comment xml:lang="en">Fault relating to engine systems.</rdfs:comment>
+  <example xml:lang="en">vibration exceedance</example>
+</owl:Class>
+
+<owl:Class rdf:about="#FlightEvents">
+  <rdfs:subClassOf rdf:resource="#OperationalMetric"/>
+  <rdfs:label xml:lang="en">FlightEvents</rdfs:label>
+  <rdfs:comment xml:lang="en">Event during flight.</rdfs:comment>
+  <example xml:lang="en">hard landing</example>
+</owl:Class>
+
+<owl:Class rdf:about="#FlightHours_InspectionThreshold">
+  <rdfs:subClassOf rdf:resource="#FlightHours"/>
+  <rdfs:label xml:lang="en">600 Flight Hours Threshold</rdfs:label>
+  <rdfs:comment xml:lang="en">Maintenance inspection threshold triggered after 600 flight hours of engine operation</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#FuelFlowData">
+  <rdfs:subClassOf rdf:resource="#SensorData"/>
+</owl:Class>
+
+<owl:Class rdf:about="#FuelTank">
+  <rdfs:subClassOf rdf:resource="#AircraftComponent"/>
+  <rdfs:label xml:lang="en">FuelTank</rdfs:label>
+  <example xml:lang="en">Center tank</example>
+  <rdfs:comment xml:lang="en">Structure holding aviation fuel.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#HydraulicLeak">
+  <rdfs:subClassOf rdf:resource="#Fault"/>
+  <rdfs:label xml:lang="en">HydraulicLeak</rdfs:label>
+  <rdfs:comment xml:lang="en">Hydraulic fluid escaping containment</rdfs:comment>
+  <example xml:lang="en">leak detected in actuator</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Inspection">
+  <rdfs:subClassOf rdf:resource="#MaintenanceTask"/>
+  <rdfs:label xml:lang="en">Inspection</rdfs:label>
+  <rdfs:comment xml:lang="en">Visual/examination verification task.</rdfs:comment>
+  <example xml:lang="en">borescope inspection</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Inspector">
+  <rdfs:subClassOf rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:label xml:lang="en">Inspector</rdfs:label>
+  <example xml:lang="en">NDI inspector</example>
+  <rdfs:comment xml:lang="en">Performs compliance verification</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceEngineer">
+  <rdfs:subClassOf rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:label xml:lang="en">MaintenanceEngineer</rdfs:label>
+  <rdfs:comment xml:lang="en">Designs and approves maintenance actions.</rdfs:comment>
+  <example xml:lang="en">certifying engineer</example>
+</owl:Class>
+
+<owl:Class rdf:about="#OilConditionData">
+  <rdfs:subClassOf rdf:resource="#SensorData"/>
+</owl:Class>
+
+<owl:Class rdf:about="#PredictiveMaintenancePlan">
+  <rdfs:subClassOf rdf:resource="#MaintenancePlan"/>
+</owl:Class>
+
+<owl:Class rdf:about="#PressureData">
+  <rdfs:subClassOf rdf:resource="#SensorData"/>
+</owl:Class>
+
+<owl:Class rdf:about="#PreventiveMaintenancePlan">
+  <rdfs:subClassOf rdf:resource="#MaintenancePlan"/>
+</owl:Class>
+
+<owl:Class rdf:about="#QualityAssurancePersonnel">
+  <rdfs:subClassOf rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:label xml:lang="en">QualityAssurancePersonnel</rdfs:label>
+  <rdfs:comment xml:lang="en">Oversees regulatory compliance.</rdfs:comment>
+  <example xml:lang="en">QA auditor</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Repair">
+  <rdfs:subClassOf rdf:resource="#MaintenanceTask"/>
+  <rdfs:label xml:lang="en">Repair</rdfs:label>
+  <rdfs:comment xml:lang="en">Actions restoring functionality.</rdfs:comment>
+  <example xml:lang="en">weld crack</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Replacement">
+  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+  <rdfs:subClassOf rdf:resource="#MaintenanceTask"/>
+</owl:Class>
+
+<owl:Class rdf:about="#ScheduledMaintenancePlan">
+  <rdfs:subClassOf rdf:resource="#MaintenancePlan"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SensorFault">
+  <rdfs:subClassOf rdf:resource="#Fault"/>
+  <rdfs:label xml:lang="en">SensorFault</rdfs:label>
+  <rdfs:comment xml:lang="en">Faults related to sensor failure</rdfs:comment>
+  <example xml:lang="en">pressure sensor stuck</example>
+</owl:Class>
+
+<owl:Class rdf:about="#ServiceBulletin">
+  <rdfs:subClassOf rdf:resource="#MantenanceDocument"/>
+</owl:Class>
+
+<owl:Class rdf:about="#StructuralFault">
+  <rdfs:subClassOf rdf:resource="#Fault"/>
+  <rdfs:label xml:lang="en">StructuralFault</rdfs:label>
+  <rdfs:comment xml:lang="en">Cracked or damaged structure.</rdfs:comment>
+  <example xml:lang="en">wing spar crack</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Supervisor">
+  <rdfs:subClassOf rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:label xml:lang="en">Supervisor</rdfs:label>
+  <rdfs:comment xml:lang="en">Oversees workforce and tasks.</rdfs:comment>
+  <example xml:lang="en">shift supervisor</example>
+</owl:Class>
+
+<owl:Class rdf:about="#Technician">
+  <rdfs:subClassOf rdf:resource="#MaintenancePersonnel"/>
+  <rdfs:label xml:lang="en">Technician</rdfs:label>
+  <rdfs:comment xml:lang="en">Hands-on maintainer</rdfs:comment>
+  <example xml:lang="en">engine tech</example>
+</owl:Class>
+
+<owl:Class rdf:about="#TemperatureData">
+  <rdfs:subClassOf rdf:resource="#SensorData"/>
+</owl:Class>
+
+<owl:Class rdf:about="#VibrationData">
+  <rdfs:subClassOf rdf:resource="#SensorData"/>
+</owl:Class>
+
+<owl:Class rdf:about="#WIng">
+  <rdfs:subClassOf rdf:resource="#AircraftComponent"/>
+  <rdfs:label xml:lang="en">Wing</rdfs:label>
+  <example xml:lang="en">Left wing</example>
+  <rdfs:comment xml:lang="en">Structure holding aviation fuel</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#WeeklyCheck">
+  <rdfs:subClassOf rdf:resource="#MaintenanceSchedule"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Wing">
+  <rdfs:subClassOf rdf:resource="#AircraftComponent"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#hasFault"/>
+      <owl:hasValue rdf:resource="#CrackFormationFault"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#hasFault"/>
+      <owl:hasValue rdf:resource="#DelaminationFault"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#hasFault"/>
+      <owl:hasValue rdf:resource="#CorrosionFault"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#hasFault"/>
+      <owl:hasValue rdf:resource="#FastenerLoosenessFault"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+</owl:Class>
+
+<owl:Class rdf:about="#SeverityLevel">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Tool">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#InventoryItem">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Sensor">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#HandTool">
+  <rdfs:subClassOf rdf:resource="#Tool"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SpecializedTool">
+  <rdfs:subClassOf rdf:resource="#Tool"/>
+</owl:Class>
+
+<owl:Class rdf:about="#GroundSupportEquipment">
+  <rdfs:subClassOf rdf:resource="#Tool"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NDT_Equipment">
+  <rdfs:subClassOf rdf:resource="#Tool"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SupportEquipment">
+  <rdfs:subClassOf rdf:resource="#Tool"/>
+</owl:Class>
+
+<owl:Class rdf:about="#LeftEngine">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#RightEngine">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#LeftFuelTank">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#RightFuelTank">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#CenterFuelTank">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#WingSystem">
+  <rdfs:subClassOf rdf:resource="#Component"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MandatoryStructuralScanDue">
+  <rdfs:subClassOf rdf:resource="#Fault"/>
+</owl:Class>
+
+<owl:Class rdf:about="#WaterInFuelSensor">
+  <rdfs:subClassOf rdf:resource="#Sensor"/>
+</owl:Class>
+
+<owl:Class rdf:about="#FlowRateSensor">
+  <rdfs:subClassOf rdf:resource="#Sensor"/>
+</owl:Class>
+
+<owl:Class rdf:about="#StrainGauge">
+  <rdfs:subClassOf rdf:resource="#Sensor"/>
+</owl:Class>
+
+<owl:Class rdf:about="#CorrosionPotentialSensor">
+  <rdfs:subClassOf rdf:resource="#Sensor"/>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_00">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">General</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_01">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Maintenance Policy</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_02">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Operations</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_03">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Support</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_04">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Airworthiness Limitations</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_05">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Time Limits and Maintenance Checks</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_06">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Dimensions and Areas</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_07">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Lifting and Shoring</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_08">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Leveling and Weighing</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_09">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Towing and Taxiing</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_10">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Parking, Mooring, Storage and Return to Service</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_11">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Placards and Markings</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_12">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Servicing</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_13">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Hardware and General Tools</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_14">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Hardware</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_15">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Aircrew Information</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_16">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Change of Role</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_17">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_18">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Vibration and Noise Analysis</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_19">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_20">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Standard Practices - Airframe</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_21">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Air Conditioning</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_22">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Auto Flight</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_23">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Communications</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_24">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#requiresLicense"/>
+      <owl:someValuesFrom rdf:resource="#B2_Avionics"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Electrical Power</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#B2_Avionics">
+  <rdfs:subClassOf rdf:resource="#LicenseType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_25">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Equipment and Furnishings</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_26">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Fire Protection</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_27">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Flight Controls</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_28">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Fuel</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_29">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Hydraulic Power</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_30">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Ice and Rain Protection</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_31">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Indicating and Recording System</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_32">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Landing Gear</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_33">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Lights</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_34">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Navigation</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_35">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Oxygen</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_36">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Pneumatic</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_37">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Vacuum</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_38">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Water and Waste</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_39">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Electrical - Electronic Panels and Multipurpose Components</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_40">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Multisystem</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_41">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Water Ballast</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_42">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Integrated Modular Avionics</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_43">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Emergency Solar Panel System</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_44">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Cabin Systems</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_45">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Onboard Maintenance Systems</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_46">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Information Systems</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_47">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Inert Gas System</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_48">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">In Flight Fuel Dispensing</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_49">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Airborne Auxiliary Power</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_50">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Cargo and Accessory Compartments</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_51">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Standard Practices and Structures - General</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_52">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Doors</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_53">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Fuselage</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_54">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Nacelles and Pylons</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_55">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Stabilizers</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_56">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Windows</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_57">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#requiresLicense"/>
+      <owl:someValuesFrom rdf:resource="#B1_Mechanic"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Wings</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#B1_Mechanic">
+  <rdfs:subClassOf rdf:resource="#LicenseType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_58">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_59">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_60">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Standard Practices - Propeller and Rotor</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_61">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Propeller and Propulsors</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_62">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Main Rotor</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_63">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Main Rotor Drive</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_64">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Tail Rotor</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_65">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Tail Rotor Drive</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_66">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Folding Blades and Pylon</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_67">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Rotors Flight Control</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_68">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_69">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_70">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Standard Practices - Engine</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_71">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Power Plant</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_72">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#requiresLicense"/>
+      <owl:someValuesFrom rdf:resource="#B1_Mechanic"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Engine Turbine</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_73">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Engine Fuel and Control</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_74">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Ignition</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_75">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Bleed Air</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_76">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Engine Controls</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_77">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Engine Indicating</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_78">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Exhaust</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_79">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Oil</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_80">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Starting</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_81">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Turbines (Reciprocating Engines)</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_82">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Water Injection</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_83">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Accessory Gear Box</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_84">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Propulsion Augmentation</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_85">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Fuel Cell Systems</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_86">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_87">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_88">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_89">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Flight Test Installation</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_90">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Unlabeled</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_91">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Charts</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_92">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Electrical Power Multiplexing</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_93">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Surveillance</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_94">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Weapon System</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_95">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Crew Escape and Safety</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_96">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Missiles, Drones and Telemetry</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_97">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Wiring Reporting</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_98">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Meteorological and Atmospheric Research</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_99">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Electronic Warfare System</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#ATA_100">
+  <rdfs:subClassOf rdf:resource="#AMM_Chapter"/>
+  <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Reserved</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#Grounded_AOG">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:NamedIndividual rdf:about="#CrackFormationFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Critical"/>
+  <rdf:type>
+    <owl:Restriction>
+      <owl:onProperty>
+        <rdf:Description>
+          <owl:inverseOf rdf:resource="#hasFault"/>
+        </rdf:Description>
+      </owl:onProperty>
+      <owl:someValuesFrom rdf:resource="#Wing"/>
+    </owl:Restriction>
+  </rdf:type>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#DelaminationFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Critical"/>
+  <rdf:type>
+    <owl:Restriction>
+      <owl:onProperty>
+        <rdf:Description>
+          <owl:inverseOf rdf:resource="#hasFault"/>
+        </rdf:Description>
+      </owl:onProperty>
+      <owl:someValuesFrom rdf:resource="#Wing"/>
+    </owl:Restriction>
+  </rdf:type>
+  <triggersMaintenance rdf:resource="#Repair_DelaminationFault"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+  <rdf:type rdf:resource="#MaintenanceRecord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#CorrosionFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type>
+    <owl:Restriction>
+      <owl:onProperty>
+        <rdf:Description>
+          <owl:inverseOf rdf:resource="#hasFault"/>
+        </rdf:Description>
+      </owl:onProperty>
+      <owl:someValuesFrom rdf:resource="#Wing"/>
+    </owl:Restriction>
+  </rdf:type>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FastenerLoosenessFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Minor"/>
+  <rdf:type>
+    <owl:Restriction>
+      <owl:onProperty>
+        <rdf:Description>
+          <owl:inverseOf rdf:resource="#hasFault"/>
+        </rdf:Description>
+      </owl:onProperty>
+      <owl:someValuesFrom rdf:resource="#Wing"/>
+    </owl:Restriction>
+  </rdf:type>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Critical">
+  <rdf:type rdf:resource="#SeverityLevel"/>
+  <rdf:type rdf:resource="#OperationalMetric"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Repair_DelaminationFault">
+  <resultsIn rdf:resource="#DelaminationFault"/>
+  <rdf:type rdf:resource="#Repair"/>
+  <requiresTools rdf:resource="#Ultrasonic_Flaw_Detector"/>
+  <taskFlightHoursLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</taskFlightHoursLimit>
+  <taskFlightCyclesLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</taskFlightCyclesLimit>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Major">
+  <rdf:type rdf:resource="#SeverityLevel"/>
+  <rdf:type rdf:resource="#OperationalMetric"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Minor">
+  <rdf:type rdf:resource="#SeverityLevel"/>
+  <rdf:type rdf:resource="#OperationalMetric"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Ultrasonic_Flaw_Detector">
+  <rdf:type rdf:resource="#NDT_Equipment"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+  <rdfs:label xml:lang="en">Ultrasonic Flaw Detector</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#PW119_Engine">
+  <rdf:type rdf:resource="#Engine"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#PW127_Engine">
+  <rdf:type rdf:resource="#Engine"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Left_Wing_FuelTank">
+  <rdf:type rdf:resource="#FuelTank"/>
+  <hasSensorData rdf:resource="#FuelLevel_Left_Tank"/>
+  <triggersMaintenance rdf:resource="#FuelTankInspection_001"/>
+  <requiresMaintenance rdf:resource="#FuelTankInspection_001"/>
+  <rdf:type rdf:resource="#Fault"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelLevel_Left_Tank">
+  <rdf:type rdf:resource="#SensorData"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">850.0</sensorValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTankInspection_001">
+  <rdf:type rdf:resource="#MaintenanceProcess"/>
+  <performedBy rdf:resource="#Technician_001"/>
+  <rdf:type rdf:resource="#MaintenanceActivity"/>
+  <inspectionDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-01-18</inspectionDate>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Technician_001">
+  <rdf:type rdf:resource="#MaintenancePersonnel"/>
+  <technicianLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#string">EASA-66-B1-001234</technicianLicense>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Right_Wing_FuelTank">
+  <rdf:type rdf:resource="#FuelTank"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Center_FuelTank">
+  <rdf:type rdf:resource="#FuelTank"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Left_Wing">
+  <rdf:type rdf:resource="#Wing"/>
+  <rdf:type rdf:resource="#WIng"/>
+  <hasSensorData rdf:resource="#WingStrain_Left"/>
+  <triggersMaintenance rdf:resource="#WingInspection_001"/>
+  <requiresMaintenance rdf:resource="#WingInspection_001"/>
+  <rdf:type rdf:resource="#Fault"/>
+  <hasFault rdf:resource="#DelaminationFault"/>
+  <hasFault rdf:resource="#FastenerLoosenessFault"/>
+  <hasFault rdf:resource="#CrackFormationFault"/>
+  <hasFault rdf:resource="#CorrosionFault"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#WingStrain_Left">
+  <rdf:type rdf:resource="#SensorData"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">245.3</sensorValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#WingInspection_001">
+  <rdf:type rdf:resource="#MaintenanceProcess"/>
+  <performedBy rdf:resource="#Technician_001"/>
+  <rdf:type rdf:resource="#MaintenanceActivity"/>
+  <inspectionDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-01-20</inspectionDate>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Right_Wing">
+  <rdf:type rdf:resource="#Wing"/>
+  <rdf:type rdf:resource="#WIng"/>
+  <hasFault rdf:resource="#DelaminationFault"/>
+  <hasFault rdf:resource="#FastenerLoosenessFault"/>
+  <hasFault rdf:resource="#CrackFormationFault"/>
+  <hasFault rdf:resource="#CorrosionFault"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aircraft_Do328_001">
+  <rdf:type rdf:resource="#Aircraft"/>
+  <hasComponent rdf:resource="#PW119_Engine_Right"/>
+  <hasComponent rdf:resource="#Right_Wing"/>
+  <hasComponent rdf:resource="#Left_Wing_FuelTank"/>
+  <hasComponent rdf:resource="#PW119_Engine_Left"/>
+  <hasComponent rdf:resource="#Right_Wing_FuelTank"/>
+  <hasComponent rdf:resource="#Left_Wing"/>
+  <hasFlightStatus rdf:resource="#Status_Grounded"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#PW119_Engine_Right">
+  <rdf:type rdf:resource="#Engine"/>
+  <hasSensorData rdf:resource="#EGT_right_Engine"/>
+  <requiresMaintenance rdf:resource="#EngineInspection_001"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#PW119_Engine_Left">
+  <rdf:type rdf:resource="#Engine"/>
+  <hasSensorData rdf:resource="#EGT_Left_Engine"/>
+  <hasFault rdf:resource="#EngineOverTempFault_001"/>
+  <requiresMaintenance rdf:resource="#EngineInspection_001"/>
+  <rdf:type rdf:resource="#Part"/>
+  <rdf:type rdf:resource="#SensorData"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Status_Grounded">
+  <rdf:type rdf:resource="#AircraftStatus"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EGT_right_Engine">
+  <rdf:type rdf:resource="#TemperatureData"/>
+  <monitors rdf:resource="#PW119_Engine_Right"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">732.8</sensorValue>
+  <temperatureThreshold rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">800.0</temperatureThreshold>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EngineInspection_001">
+  <rdf:type rdf:resource="#MaintenanceProcess"/>
+  <performedOn rdf:resource="#PW119_Engine_Left"/>
+  <performedBy rdf:resource="#Technician_001"/>
+  <requiresTools rdf:resource="#TorqueWrench_001"/>
+  <hasRegulatoryRequirement rdf:resource="#AD_Do328_Engine_001"/>
+  <hasRegulatoryRequirement rdf:resource="#AMM_PW119Inspection"/>
+  <compliesWith rdf:resource="#AD_Do328_Engine_001"/>
+  <usesTool rdf:resource="#TorqueWrench_001"/>
+  <followsDocument rdf:resource="#AMM_PW119Inspection"/>
+  <rdf:type rdf:resource="#MaintenanceTask"/>
+  <inspectionDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-01-15</inspectionDate>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EGT_Left_Engine">
+  <rdf:type rdf:resource="#TemperatureData"/>
+  <monitors rdf:resource="#PW119_Engine_Left"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">725.5</sensorValue>
+  <temperatureThreshold rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">800.0</temperatureThreshold>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EngineOverTempFault_001">
+  <rdf:type rdf:resource="#EngineFault"/>
+  <affectsComponents rdf:resource="#PW119_Engine_Left"/>
+  <detectedBy rdf:resource="#EGT_Left_Engine"/>
+  <triggersMaintenance rdf:resource="#EngineInspection_001"/>
+  <faultSeverity rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Critical</faultSeverity>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#TorqueWrench_001">
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AD_Do328_Engine_001">
+  <rdf:type rdf:resource="#AirworthinessDirective"/>
+  <documentNumber rdf:datatype="http://www.w3.org/2001/XMLSchema#string">AD-2024-328-E-001</documentNumber>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AMM_PW119Inspection">
+  <rdf:type rdf:resource="#AMM"/>
+  <documentNumber rdf:datatype="http://www.w3.org/2001/XMLSchema#string">AMM-PW119-Rev-12</documentNumber>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#WingStrain_right">
+  <rdf:type rdf:resource="#SensorData"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">248.1</sensorValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelLevel_right_Tank">
+  <rdf:type rdf:resource="#SensorData"/>
+  <sensorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">845.0</sensorValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EGT_SensorData_001">
+  <rdf:type rdf:resource="#SensorData"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EGT_ConditionIndicator_001">
+  <rdf:type rdf:resource="#ConditionIndicator"/>
+  <indicatorValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">825.0</indicatorValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EngineOverTempFault_002">
+  <rdf:type rdf:resource="#Fault"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#EngineHealthAssessment_001">
+  <rdf:type rdf:resource="#HealthAssessment"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#OverheatingFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Critical"/>
+  <triggersMaintenance rdf:resource="#Repair_OverheatingFault"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+  <rdf:type rdf:resource="#MaintenanceRecord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Repair_OverheatingFault">
+  <resultsIn rdf:resource="#OverheatingFault"/>
+  <rdf:type rdf:resource="#Repair"/>
+  <requiresTools rdf:resource="#Borescope_Fiberscope"/>
+  <requiresTools rdf:resource="#Flashlights_Work_Lights"/>
+  <taskFlightHoursLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</taskFlightHoursLimit>
+  <taskFlightCyclesLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</taskFlightCyclesLimit>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Borescope_Fiberscope">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+  <rdfs:label xml:lang="en">Borescope / Fiberscope</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Flashlights_Work_Lights">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+  <rdfs:label xml:lang="en">Flashlights / Work Lights</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#VibrationImbalanceFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <triggersMaintenance rdf:resource="#Repair_VibrationImbalanceFault"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+  <rdf:type rdf:resource="#MaintenanceRecord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Repair_VibrationImbalanceFault">
+  <resultsIn rdf:resource="#VibrationImbalanceFault"/>
+  <rdf:type rdf:resource="#Repair"/>
+  <requiresTools rdf:resource="#Torque_Wrenches_Beam_Click_Dial"/>
+  <scheduledAfterFlightHours rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</scheduledAfterFlightHours>
+  <taskFlightHoursLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</taskFlightHoursLimit>
+  <taskFlightCyclesLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</taskFlightCyclesLimit>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Torque_Wrenches_Beam_Click_Dial">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+  <rdfs:label xml:lang="en">Torque Wrenches (Beam, Click, Dial)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#OilPressureLossFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Critical"/>
+  <triggersMaintenance rdf:resource="#Repair_OilPressureLossFault"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+  <rdf:type rdf:resource="#MaintenanceRecord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Repair_OilPressureLossFault">
+  <resultsIn rdf:resource="#OilPressureLossFault"/>
+  <requiresPart rdf:resource="#OilPump"/>
+  <requiresTools rdf:resource="#TorqueWrench"/>
+  <rdf:type rdf:resource="#Replacement"/>
+  <taskFlightHoursLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</taskFlightHoursLimit>
+  <taskFlightCyclesLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</taskFlightCyclesLimit>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#OilPump">
+  <rdf:type rdf:resource="#Part"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#TorqueWrench">
+  <rdf:type rdf:resource="#Tool"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#ExcessiveFuelBurnFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#ComponentWearFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelLeakageFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Critical"/>
+  <triggersMaintenance rdf:resource="#Repair_FuelLeakageFault"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+  <rdf:type rdf:resource="#MaintenanceRecord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Repair_FuelLeakageFault">
+  <resultsIn rdf:resource="#FuelLeakageFault"/>
+  <rdf:type rdf:resource="#Repair"/>
+  <requiresTools rdf:resource="#Aviation_Snips_Straight_Left_Right_cut"/>
+  <taskFlightHoursLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</taskFlightHoursLimit>
+  <taskFlightCyclesLimit rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</taskFlightCyclesLimit>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aviation_Snips_Straight_Left_Right_cut">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdf:type rdf:resource="#MaintenanceTools"/>
+  <rdfs:label xml:lang="en">Aviation Snips (Straight, Left, Right cut)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelContaminationFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#BlockageFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#ImproperSealingFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Minor"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Combination_Wrenches_Metric_Imperial">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Combination Wrenches (Metric &amp; Imperial)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Socket_Set_Metric_Imperial_with_Ratchets_and_Extensions">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Socket Set (Metric &amp; Imperial) with Ratchets and Extensions</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Screwdrivers_Flathead_Phillips_Pozidriv_Torx">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Screwdrivers (Flathead, Phillips, Pozidriv, Torx)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Pliers_Slip_joint_Needle_nose_Locking_Snap_ring">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Pliers (Slip-joint, Needle-nose, Locking, Snap-ring)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Allen_Keys_Hex_Drivers_Metric_Imperial">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Allen Keys / Hex Drivers (Metric &amp; Imperial)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hammers_Ball_peen_Soft_face_Dead_blow">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Hammers (Ball-peen, Soft-face, Dead-blow)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Punches_Pin_Center_Drift">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Punches (Pin, Center, Drift)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Chisels_Cold">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Chisels (Cold)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Files_Flat_Round_Half_round_Triangular">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Files (Flat, Round, Half-round, Triangular)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hacksaw">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Hacksaw</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Scrapers">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Scrapers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wire_Cutters_and_Strippers">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Wire Cutters and Strippers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Crimping_Tools">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Crimping Tools</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Mirrors_Inspection">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Mirrors (Inspection)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Magnetic_Pickup_Tools">
+  <rdf:type rdf:resource="#HandTool"/>
+  <rdfs:label xml:lang="en">Magnetic Pickup Tools</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Cable_Tensiometer">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Cable Tensiometer</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Feeler_Gauges">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Feeler Gauges</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Micrometers_Inside_Outside">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Micrometers (Inside &amp; Outside)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Dial_Indicators">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Dial Indicators</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Calipers_Vernier_Dial_Digital">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Calipers (Vernier, Dial, Digital)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Multimeter_Digital">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Multimeter (Digital)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Megohmmeter_Megger">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Megohmmeter (Megger)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hydraulic_Pressure_Test_Kit">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Hydraulic Pressure Test Kit</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Fuel_Quantity_Tester">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Fuel Quantity Tester</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Pitot_Static_Test_Set">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Pitot-Static Test Set</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Temperature_Test_Set">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Temperature Test Set</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Tachometer_Tester">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Tachometer Tester</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Timing_Light">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Timing Light</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Valve_Spring_Tester">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Valve Spring Tester</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Bearing_Puller_Set">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Bearing Puller Set</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Seal_and_Bearing_Installation_Tools">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Seal and Bearing Installation Tools</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Rivet_Gun_and_Sets">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Rivet Gun and Sets</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Dimpler_and_Dimpling_Dies">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Dimpler and Dimpling Dies</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Cleco_Fasteners_and_Pliers">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Cleco Fasteners and Pliers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Backing_Plates_Bucking_Bars">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Backing Plates / Bucking Bars</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Drill_Motor_and_Drill_Bits_Various_sizes">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Drill Motor and Drill Bits (Various sizes)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Reamers">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Reamers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Countersink_Cage_and_Cutters">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Countersink Cage and Cutters</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Deburring_Tool">
+  <rdf:type rdf:resource="#SpecializedTool"/>
+  <rdfs:label xml:lang="en">Deburring Tool</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aircraft_Jacks_Axle_Tripod">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Aircraft Jacks (Axle, Tripod)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Jack_Stands">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Jack Stands</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Towbar_with_Dornier_328_specific_head">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Towbar (with Dornier 328-specific head)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Maintenance_Ladders_Platforms">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Maintenance Ladders / Platforms</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hydraulic_Power_Unit_GPU">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Hydraulic Power Unit (GPU)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Ground_Power_Unit_GPU_Electrical">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Ground Power Unit (GPU) (Electrical)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Air_Compressor_Nitrogen_Cart">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Air Compressor / Nitrogen Cart</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Lavatory_Service_Cart">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Lavatory Service Cart</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Potable_Water_Cart">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Potable Water Cart</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#De_icing_Truck_Equipment">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">De-icing Truck / Equipment</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_Stands_and_Hoists">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Engine Stands and Hoists</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Ignition_Exciter_Tester">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Ignition Exciter Tester</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Fuel_Sample_Cup_Fuel_Test_Kit">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Fuel Sample Cup / Fuel Test Kit</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hydraulic_Fluid_Service_Cart">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Hydraulic Fluid Service Cart</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Oil_Service_Cart">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Oil Service Cart</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Oxygen_Service_Cart_Gaseous">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Oxygen Service Cart (Gaseous)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Oxygen_Service_Cart_Liquid">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Oxygen Service Cart (Liquid)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Tire_Pressure_Gauge_and_Inflator">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Tire Pressure Gauge and Inflator</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wheel_Chocks">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Wheel Chocks</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Safety_Wire_and_Safety_Wire_Pliers">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Safety Wire and Safety Wire Pliers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Hose_Clamp_Pliers">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Hose Clamp Pliers</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Strap_Wrenches">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Strap Wrenches</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Filter_Wrenches">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Filter Wrenches</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Bearing_Heaters_Induction_or_Oven">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Bearing Heaters (Induction or Oven)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Bearing_Coolers_Freezers">
+  <rdf:type rdf:resource="#GroundSupportEquipment"/>
+  <rdfs:label xml:lang="en">Bearing Coolers (Freezers)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Eddy_Current_Tester">
+  <rdf:type rdf:resource="#NDT_Equipment"/>
+  <rdfs:label xml:lang="en">Eddy Current Tester</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Magnetic_Particle_Inspection_Kit">
+  <rdf:type rdf:resource="#NDT_Equipment"/>
+  <rdfs:label xml:lang="en">Magnetic Particle Inspection Kit</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Dye_Penetrant_Inspection_Kit">
+  <rdf:type rdf:resource="#NDT_Equipment"/>
+  <rdfs:label xml:lang="en">Dye Penetrant Inspection Kit</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#X_Ray_Radiography_Equipment">
+  <rdf:type rdf:resource="#NDT_Equipment"/>
+  <rdfs:label xml:lang="en">X-Ray / Radiography Equipment</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Workbenches">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Workbenches</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Storage_Cabinets_and_Toolboxes">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Storage Cabinets and Toolboxes</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Parts_Washer_Cleaning_Tanks">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Parts Washer / Cleaning Tanks</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Compressed_Air_System">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Compressed Air System</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Vacuum_Cleaner_Industrial_HEPA">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Vacuum Cleaner (Industrial / HEPA)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Grounding_Reels_Static_Discharge_Wands">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Grounding Reels / Static Discharge Wands</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Fire_Extinguishers_Various_types">
+  <rdf:type rdf:resource="#SupportEquipment"/>
+  <rdfs:label xml:lang="en">Fire Extinguishers (Various types)</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Status_Airworthy">
+  <rdf:type rdf:resource="#AircraftStatus"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#OverhaulDueFault">
+  <rdf:type rdf:resource="#Fault"/>
+  <hasOperationalMetric rdf:resource="#Major"/>
+  <rdf:type rdf:resource="#Aircraft"/>
+  <rdf:type rdf:resource="#FlightOperation"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aircraft_5N_TAJ">
+  <rdf:type rdf:resource="#Aircraft"/>
+  <hasComponent rdf:resource="#FuelTank_R_5N_TAJ"/>
+  <hasComponent rdf:resource="#Engine_L_5N_TAJ"/>
+  <hasComponent rdf:resource="#Wing_R_5N_TAJ"/>
+  <hasComponent rdf:resource="#Engine_R_5N_TAJ"/>
+  <hasComponent rdf:resource="#FuelTank_C_5N_TAJ"/>
+  <hasComponent rdf:resource="#FuelTank_L_5N_TAJ"/>
+  <hasComponent rdf:resource="#Wing_L_5N_TAJ"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_R_5N_TAJ">
+  <rdf:type rdf:resource="#RightFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_L_5N_TAJ">
+  <rdf:type rdf:resource="#LeftEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_R_5N_TAJ">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_R_5N_TAJ">
+  <rdf:type rdf:resource="#RightEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_C_5N_TAJ">
+  <rdf:type rdf:resource="#CenterFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_L_5N_TAJ">
+  <rdf:type rdf:resource="#LeftFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_L_5N_TAJ">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aircraft_5N_MUM">
+  <rdf:type rdf:resource="#Aircraft"/>
+  <hasComponent rdf:resource="#Wing_R_5N_MUM"/>
+  <hasComponent rdf:resource="#Engine_R_5N_MUM"/>
+  <hasComponent rdf:resource="#FuelTank_C_5N_MUM"/>
+  <hasComponent rdf:resource="#FuelTank_L_5N_MUM"/>
+  <hasComponent rdf:resource="#Wing_L_5N_MUM"/>
+  <hasComponent rdf:resource="#Engine_L_5N_MUM"/>
+  <hasComponent rdf:resource="#FuelTank_R_5N_MUM"/>
+  <hasFlightStatus rdf:resource="#Status_Grounded"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_R_5N_MUM">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_R_5N_MUM">
+  <rdf:type rdf:resource="#RightEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_C_5N_MUM">
+  <rdf:type rdf:resource="#CenterFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_L_5N_MUM">
+  <rdf:type rdf:resource="#LeftFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_L_5N_MUM">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_L_5N_MUM">
+  <rdf:type rdf:resource="#LeftEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+  <rdf:type rdf:resource="#Part"/>
+  <hasFault rdf:resource="#OverheatingFault"/>
+  <hasFault rdf:resource="#VibrationImbalanceFault"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_R_5N_MUM">
+  <rdf:type rdf:resource="#RightFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Aircraft_5N_IAO">
+  <rdf:type rdf:resource="#Aircraft"/>
+  <hasComponent rdf:resource="#FuelTank_C_5N_IAO"/>
+  <hasComponent rdf:resource="#FuelTank_L_5N_IAO"/>
+  <hasComponent rdf:resource="#Wing_L_5N_IAO"/>
+  <hasComponent rdf:resource="#Engine_L_5N_IAO"/>
+  <hasComponent rdf:resource="#FuelTank_R_5N_IAO"/>
+  <hasComponent rdf:resource="#Wing_R_5N_IAO"/>
+  <hasComponent rdf:resource="#Engine_R_5N_IAO"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_C_5N_IAO">
+  <rdf:type rdf:resource="#CenterFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_L_5N_IAO">
+  <rdf:type rdf:resource="#LeftFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_L_5N_IAO">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_L_5N_IAO">
+  <rdf:type rdf:resource="#LeftEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#FuelTank_R_5N_IAO">
+  <rdf:type rdf:resource="#RightFuelTank"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Wing_R_5N_IAO">
+  <rdf:type rdf:resource="#WingSystem"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Engine_R_5N_IAO">
+  <rdf:type rdf:resource="#RightEngine"/>
+  <rdf:type rdf:resource="#AircraftComponent"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#Task_7000_Cycle_Wing_Scan">
+  <rdf:type rdf:resource="#Inspection"/>
+  <requiresTools rdf:resource="#Eddy_Current_Tester"/>
+  <requiresTools rdf:resource="#Ultrasonic_Flaw_Detector"/>
+</owl:NamedIndividual>
+
+<swrl:Variable rdf:about="urn:swrl#s"/>
+
+<swrl:Variable rdf:about="urn:swrl#v"/>
+
+<swrl:Variable rdf:about="urn:swrl#c"/>
+
+<swrl:Variable rdf:about="urn:swrl#cycles"/>
+
+<swrl:Variable rdf:about="urn:swrl#a"/>
+
+<swrl:Variable rdf:about="urn:swrl#f"/>
+
+<swrl:Variable rdf:about="urn:swrl#m"/>
+
+<swrl:Variable rdf:about="urn:swrl#d"/>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#MEL_Deferral"/>
+          <swrl:argument1 rdf:resource="urn:swrl#m"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasRemainingDays"/>
+              <swrl:argument1 rdf:resource="urn:swrl#m"/>
+              <swrl:argument2 rdf:resource="urn:swrl#d"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#lessThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#d"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Grounded_AOG"/>
+          <swrl:argument1 rdf:resource="urn:swrl#m"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#CorrosionPotentialSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.8</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CorrosionFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#StrainGauge"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">1500.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CrackFormationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#FlowRateSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#lessThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">400.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#BlockageFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#WaterInFuelSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">30.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#FuelContaminationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#CorrosionPotentialSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.8</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CorrosionFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#StrainGauge"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">1500.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CrackFormationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#FlowRateSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#lessThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">400.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#BlockageFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#WaterInFuelSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">30.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#FuelContaminationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#CorrosionPotentialSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.8</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CorrosionFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#StrainGauge"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">1500.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#CrackFormationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#FlowRateSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#lessThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">400.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#BlockageFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#WaterInFuelSensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">30.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#FuelContaminationFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Component"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#cyclesSinceLastNDT"/>
+              <swrl:argument1 rdf:resource="urn:swrl#c"/>
+              <swrl:argument2 rdf:resource="urn:swrl#cycles"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#cycles"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">6999</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#MandatoryStructuralScanDue"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#Inspector"/>
+    <rdf:Description rdf:about="#MaintenanceEngineer"/>
+    <rdf:Description rdf:about="#QualityAssurancePersonnel"/>
+    <rdf:Description rdf:about="#Supervisor"/>
+    <rdf:Description rdf:about="#Technician"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#FlightCycles"/>
+    <rdf:Description rdf:about="#FlightEvents"/>
+    <rdf:Description rdf:about="#FlightHours"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#A-Check"/>
+    <rdf:Description rdf:about="#B-Check"/>
+    <rdf:Description rdf:about="#C-Check"/>
+    <rdf:Description rdf:about="#DailyCheck"/>
+    <rdf:Description rdf:about="#WeeklyCheck"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#MaintenanceActivity"/>
+    <rdf:Description rdf:about="#MaintenancePersonnel"/>
+    <rdf:Description rdf:about="#MaintenancePlan"/>
+    <rdf:Description rdf:about="#MaintenanceProcedure"/>
+    <rdf:Description rdf:about="#MaintenanceRecord"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#FuelFlowData"/>
+    <rdf:Description rdf:about="#OilConditionData"/>
+    <rdf:Description rdf:about="#PressureData"/>
+    <rdf:Description rdf:about="#TemperatureData"/>
+    <rdf:Description rdf:about="#VibrationData"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#Calibration"/>
+    <rdf:Description rdf:about="#Cleaning"/>
+    <rdf:Description rdf:about="#Inspection"/>
+    <rdf:Description rdf:about="#Repair"/>
+    <rdf:Description rdf:about="#Replacement"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#CorrectiveMaintenancePlan"/>
+    <rdf:Description rdf:about="#PredictiveMaintenancePlan"/>
+    <rdf:Description rdf:about="#PreventiveMaintenancePlan"/>
+    <rdf:Description rdf:about="#ScheduledMaintenancePlan"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+<swrl:Imp/>
+
+<swrl:ClassAtom>
+  <swrl:classPredicate rdf:resource="#Sensor"/>
+  <swrl:argument1 rdf:resource="urn:swrl#s"/>
+</swrl:ClassAtom>
+
+<swrl:DatavaluedPropertyAtom>
+  <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+  <swrl:argument1 rdf:resource="urn:swrl#s"/>
+  <swrl:argument2 rdf:resource="urn:swrl#v"/>
+</swrl:DatavaluedPropertyAtom>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Sensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">900.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#OverheatingFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Component"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#currentFlightCycles"/>
+              <swrl:argument1 rdf:resource="urn:swrl#c"/>
+              <swrl:argument2 rdf:resource="urn:swrl#cycles"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#cycles"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30000</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#OverhaulDueFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Sensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#lessThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">20.0</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#FuelLeakageFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Sensor"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasReadingValue"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#v"/>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:BuiltinAtom>
+                  <swrl:builtin rdf:resource="http://www.w3.org/2003/11/swrlb#greaterThan"/>
+                  <swrl:arguments>
+                    <rdf:Description>
+                      <rdf:first rdf:resource="urn:swrl#v"/>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                          <rdf:first rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">4.5</rdf:first>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </swrl:arguments>
+                </swrl:BuiltinAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#performedOn"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFault"/>
+          <swrl:argument1 rdf:resource="urn:swrl#c"/>
+          <swrl:argument2 rdf:resource="#VibrationImbalanceFault"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Aircraft"/>
+          <swrl:argument1 rdf:resource="urn:swrl#a"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:IndividualPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#hasComponent"/>
+              <swrl:argument1 rdf:resource="urn:swrl#a"/>
+              <swrl:argument2 rdf:resource="urn:swrl#c"/>
+            </swrl:IndividualPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:IndividualPropertyAtom>
+                  <swrl:propertyPredicate rdf:resource="#hasFault"/>
+                  <swrl:argument1 rdf:resource="urn:swrl#c"/>
+                  <swrl:argument2 rdf:resource="urn:swrl#f"/>
+                </swrl:IndividualPropertyAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#hasOperationalMetric"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#f"/>
+                      <swrl:argument2 rdf:resource="#Critical"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#hasFlightStatus"/>
+          <swrl:argument1 rdf:resource="urn:swrl#a"/>
+          <swrl:argument2 rdf:resource="#Status_Grounded"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+
+</rdf:RDF>

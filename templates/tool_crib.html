@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Digital Tool Crib</h1>
+        <div class="page-subtitle">Inventory & Calibration Tracking</div>
+    </div>
+</div>
+
+<div class="glass-panel border-start-info mb-4">
+    <div class="panel-header text-info">
+        <i class="bi bi-tools"></i> Add New Tool to Inventory
+    </div>
+    <div class="panel-body">
+        <form action="/add_tool" method="POST" class="m-0">
+            <div class="grid grid--4col align-items-end">
+                <div class="form-group mb-0">
+                    <label class="form-label">Tool ID</label>
+                    <input type="text" name="tool_id" class="form-input" placeholder="e.g., TL-900" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="tool_name" class="form-input" placeholder="e.g., Heat Gun" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Category</label>
+                    <input type="text" name="category" class="form-input" placeholder="e.g., PowerTool" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Calibration Due</label>
+                    <input type="date" name="calibration_due" class="form-input">
+                    <div class="form-text">Leave blank if not required</div>
+                </div>
+                <div class="form-group mb-0">
+                    <button type="submit" class="btn btn--info w-100 fw-bold" style="background: var(--accent-cyan); color: #000; box-shadow: var(--shadow-glow);"><i class="bi bi-plus-lg"></i> Add Tool</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-end mb-3">
+    <div style="width: 300px;">
+        <label class="form-label text-info"><i class="bi bi-funnel-fill me-1"></i> Filter by Tool Classification</label>
+        <select id="categoryFilter" class="form-select border-info fw-bold" onchange="filterTools()">
+            <option value="All">All Categories (Show Entire Crib)</option>
+            {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <span class="badge badge--info p-2"><i class="bi bi-box-seam me-1"></i> Total Tools in Crib: {{ tools|length }}</span>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header">
+        <i class="bi bi-list-check"></i> Master Tool Inventory
+    </div>
+    <div class="table-responsive">
+        <table class="data-table" id="toolTable">
+            <thead>
+                <tr>
+                    <th>Tool ID</th>
+                    <th>Description & Category</th>
+                    <th>Calibration Due</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tool in tools %}
+                <tr class="tool-row" data-category="{{ tool['category'] }}" {% if tool['status'] == 'Quarantined' or (tool['cal_days_remaining'] < 0 and tool['calibration_due'] != 'N/A') %}style="background-color: rgba(239, 68, 68, 0.05);"{% endif %}>
+                    <td class="fw-bold">{{ tool['tool_id'] }}</td>
+                    <td>
+                        <span class="fw-bold">{{ tool['tool_name'] }}</span><br>
+                        <small class="text-muted">{{ tool['category'] }}</small>
+                    </td>
+                    <td>
+                        {% if tool['calibration_due'] == 'N/A' %}
+                            <div class="fw-bold text-muted">N/A</div>
+                            <span class="badge badge--neutral mt-1">No Cal Required</span>
+                        {% else %}
+                            <div class="fw-bold">{{ tool['calibration_due'] }}</div>
+                            {% if tool['cal_days_remaining'] < 0 %}
+                                <span class="badge badge--danger mt-1">Expired ({{ tool['cal_days_remaining']|abs }} days)</span>
+                            {% elif tool['cal_days_remaining'] <= 30 %}
+                                <span class="badge badge--warning mt-1">Due in {{ tool['cal_days_remaining'] }} days</span>
+                            {% else %}
+                                <span class="badge badge--success mt-1">Valid</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tool['status'] == 'Available' %}
+                            <span class="badge badge--success">Available</span>
+                        {% elif tool['status'] == 'Quarantined' %}
+                            <span class="badge badge--danger">Quarantined</span>
+                        {% else %}
+                            <span class="badge badge--neutral">Checked Out: {{ tool['checked_out_to'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            
+                            {% if tool['status'] == 'Available' %}
+                                <form action="{{ url_for('checkout_tool', tool_id=tool['tool_id']) }}" method="POST" class="d-flex m-0 gap-2">
+                                    <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                        <option value="" disabled selected>Engineer...</option>
+                                        {% for eng in engineers %}
+                                            <option value="{{ eng.emp_id }}">{{ eng.full_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn--outline btn--sm text-success fw-bold border-success">Check Out</button>
+                                </form>
+                            {% elif tool['status'] == 'Checked Out' %}
+                                <form action="{{ url_for('checkin_tool', tool_id=tool['tool_id']) }}" method="POST" class="m-0">
+                                    <button type="submit" class="btn btn--success btn--sm fw-bold">Return Tool</button>
+                                </form>
+                            {% endif %}
+
+                            {% if tool['calibration_due'] != 'N/A' %}
+                            <form action="/update_tool/{{ tool['tool_id'] }}" method="POST" class="d-flex m-0 gap-2">
+                                <input type="date" name="new_cal_date" class="form-input" style="padding: 0.25rem; width: 130px;" required>
+                                <button type="submit" class="btn btn--info btn--sm fw-bold border-start-info" style="color: var(--accent-cyan); background: transparent; border: 1px solid var(--accent-cyan);">Recalibrate</button>
+                            </form>
+                            {% endif %}
+                            
+                            {% if tool['status'] != 'Quarantined' %}
+                            <form action="/quarantine_tool/{{ tool['tool_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Quarantine this tool?');">
+                                <button type="submit" class="btn btn--warning btn--sm fw-bold"><i class="bi bi-exclamation-triangle"></i></button>
+                            </form>
+                            {% endif %}
+
+                            <form action="/remove_tool/{{ tool['tool_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Permanently delete {{ tool['tool_name'] }} from inventory?');">
+                                <button type="submit" class="btn btn--danger btn--sm fw-bold"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function filterTools() {
+    let selectedCategory = document.getElementById("categoryFilter").value;
+    let tableRows = document.querySelectorAll(".tool-row");
+
+    tableRows.forEach(row => {
+        if (selectedCategory === "All" || row.getAttribute("data-category") === selectedCategory) {
+            row.style.display = ""; 
+        } else {
+            row.style.display = "none"; 
+        }
+    });
+}
+</script>
+{% endblock %}

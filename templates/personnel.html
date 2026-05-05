@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-person-vcard text-info me-2"></i>Authorized Personnel</h1>
+        <div class="page-subtitle">CAMO Engineer Roster & License Tracking</div>
+    </div>
+    <span class="badge badge--info fs-sm p-2">
+        <i class="bi bi-people-fill me-1"></i> Total Active Engineers: {{ engineers|length }}
+    </span>
+</div>
+
+<div class="glass-panel border-start-info mb-4">
+    <div class="panel-header text-info">
+        <i class="bi bi-person-plus-fill"></i> Register New Engineer
+    </div>
+    <div class="panel-body">
+        <form action="/add_engineer" method="POST" class="m-0">
+            <div class="grid grid--4col align-items-end">
+                <div class="form-group mb-0">
+                    <label class="form-label">Emp ID</label>
+                    <input type="text" name="emp_id" class="form-input" placeholder="e.g., ENG-01" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="full_name" class="form-input" placeholder="e.g., John Doe" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">License Type</label>
+                    <select name="license_type" class="form-select">
+                        <option value="EASA Part-66 B1">EASA Part-66 B1</option>
+                        <option value="EASA Part-66 B2">EASA Part-66 B2</option>
+                        <option value="FAA A&P">FAA A&P</option>
+                        <option value="Inspector (IA)">Inspector (IA)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">License Number</label>
+                    <input type="text" name="license_number" class="form-input" placeholder="e.g., EAS-8842" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Stamp #</label>
+                    <input type="text" name="stamp_number" class="form-input" placeholder="e.g., 402" required>
+                </div>
+                <div class="form-group mb-0">
+                    <button type="submit" class="btn btn--info w-100 fw-bold" style="background: var(--accent-cyan); color: #000; box-shadow: var(--shadow-glow);"><i class="bi bi-plus-lg"></i> Register</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="glass-panel border-start-warning">
+    <div class="panel-header text-warning">
+        <i class="bi bi-card-checklist"></i> Active Certifications Database
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Emp ID</th>
+                    <th>Engineer Name</th>
+                    <th>License Info</th>
+                    <th>Digital Stamp</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eng in engineers %}
+                <tr>
+                    <td class="fw-bold">{{ eng['emp_id'] }}</td>
+                    <td class="fw-bold text-primary">{{ eng['full_name'] }}</td>
+                    <td>
+                        <span class="badge badge--neutral me-1">{{ eng['license_type'] }}</span>
+                        <span class="text-muted font-monospace fs-sm">#{{ eng['license_number'] }}</span>
+                    </td>
+                    <td><span class="badge badge--info font-monospace"><i class="bi bi-upc-scan me-1"></i> STAMP {{ eng['stamp_number'] }}</span></td>
+                    <td>
+                        {% if eng['status'] == 'Active' %}
+                            <span class="badge badge--success">Active</span>
+                        {% else %}
+                            <span class="badge badge--danger">Suspended</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

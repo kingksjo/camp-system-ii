@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title text-info"><i class="bi bi-robot me-2"></i> C.O.R.E. Reasoner Logs</h1>
+        <div class="page-subtitle">Historical AI Inferences & SWRL Audit Trail</div>
+    </div>
+    <span class="badge badge--info fs-sm p-2">
+        <i class="bi bi-database-check me-1"></i> Total Recorded Inferences: {{ logs|length }}
+    </span>
+</div>
+
+<div class="glass-panel border-start-info">
+    <div class="panel-header text-info">
+        <i class="bi bi-clock-history"></i> Autonomous Decision Audit Trail
+    </div>
+    <div class="table-responsive">
+        {% if logs|length == 0 %}
+        <div class="text-center p-4">
+            <i class="bi bi-inbox fs-sm d-block mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
+            <h5>No AI Decisions Recorded Yet</h5>
+            <p class="text-muted fs-sm">Run a diagnostic from the Fleet Dashboard to generate the first ontology inference.</p>
+        </div>
+        {% else %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Log ID</th>
+                    <th style="width: 15%;">Target Component</th>
+                    <th style="width: 20%;">AI Final Verdict</th>
+                    <th style="width: 55%;">Ontological Reasoning Trace</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td><span class="badge badge--neutral"># {{ log['rowid'] }}</span></td>
+                    <td class="fw-bold">{{ log['component_id'] }}</td>
+                    <td>
+                        {% if 'Ground' in log['ai_decision'] or 'AOG' in log['ai_decision'] %}
+                            <span class="badge badge--danger"><i class="bi bi-exclamation-octagon me-1"></i> {{ log['ai_decision'] }}</span>
+                        {% else %}
+                            <span class="badge badge--success"><i class="bi bi-cone-striped me-1"></i> {{ log['ai_decision'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <details class="swrl-details">
+                            <summary class="btn btn--outline btn--sm text-info fw-bold border-info mb-2" style="cursor: pointer; display: inline-flex;">
+                                <i class="bi bi-code-square"></i> View SWRL Trace
+                            </summary>
+                            
+                            <div class="mt-2 p-3 font-monospace rounded" style="background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-cyan); font-size: 0.8rem; color: var(--status-success);">
+                                <div class="mb-1" style="color: var(--text-muted); font-size: 0.7rem;">// camp.owl reasoning extraction</div>
+                                {{ log['explanation_text'] }}
+                            </div>
+                        </details>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Remove default details marker */
+.swrl-details summary::marker,
+.swrl-details summary::-webkit-details-marker {
+    display: none;
+}
+</style>
+{% endblock %}

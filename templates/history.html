@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-journal-check text-success me-2"></i> Master Technical Logbook</h1>
+    </div>
+</div>
+
+<div class="grid grid--1col mb-4">
+    <div class="glass-panel border-start-success">
+        <div class="panel-header text-success">
+            <i class="bi bi-award"></i> Certificates of Release to Service (CRS)
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Release Date</th>
+                        <th>Aircraft</th>
+                        <th>Reference ID</th>
+                        <th>Maintenance Action</th>
+                        <th>Authorized Signature</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for crs in crs_records %}
+                    <tr>
+                        <td class="fw-bold">{{ crs.release_date.split('.')[0] }}</td>
+                        <td><span class="badge badge--neutral">{{ crs.aircraft_reg }}</span></td>
+                        <td><span class="badge badge--neutral font-monospace">{{ crs.reference_id }}</span></td>
+                        <td>{{ crs.description }}</td>
+                        <td class="text-success fw-bold font-monospace"><i class="bi bi-pen me-1"></i> {{ crs.signed_off_by }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted p-4">
+                            <i class="bi bi-folder-x fs-sm d-block mb-2 text-secondary" style="font-size: 2rem;"></i> 
+                            No CRS records generated yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid--1col">
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning">
+            <i class="bi bi-clock-history"></i> General Maintenance Log
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Completion Date</th>
+                        <th>Aircraft</th>
+                        <th>Task Description</th>
+                        <th>Signed Off By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in routine_history %}
+                    <tr>
+                        <td class="fw-bold">
+                            {% if record.completion_date %}
+                                {{ record.completion_date.split('.')[0] }}
+                            {% else %}
+                                <span class="text-muted">Legacy Record</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge badge--neutral">{{ record.aircraft_reg }}</span></td>
+                        <td>{{ record.task_description }}</td>
+                        <td class="fw-bold text-info font-monospace"><i class="bi bi-pen me-1 text-muted"></i> {{ record.signed_off_by }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted p-4">
+                            <i class="bi bi-clipboard-x fs-sm d-block mb-2 text-secondary" style="font-size: 2rem;"></i> 
+                            No maintenance history recorded yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

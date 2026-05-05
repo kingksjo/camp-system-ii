@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-clipboard2-x text-danger me-2"></i> Minimum Equipment List (MEL) Tracker</h1>
+    </div>
+</div>
+
+<div class="grid grid--2col-aside">
+    <div class="glass-panel border-start-danger">
+        <div class="panel-header text-danger">
+            <i class="bi bi-plus-circle"></i> Issue New MEL Deferral
+        </div>
+        <div class="panel-body">
+            <form action="{{ url_for('mel') }}" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Select Aircraft</label>
+                    <select name="aircraft_id" class="form-select border-danger" required>
+                        <option value="" disabled selected>Choose tail number...</option>
+                        {% for plane in fleet %}
+                            <option value="{{ plane.aircraft_id }}">{{ plane.registration }} ({{ plane.model }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Defect Description</label>
+                    <input type="text" name="item_description" class="form-input" placeholder="e.g., Right Landing Light Inop" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">MEL Category</label>
+                    <select name="mel_category" class="form-select" required>
+                        <option value="B">Category B (3 Days)</option>
+                        <option value="C">Category C (10 Days)</option>
+                        <option value="D">Category D (120 Days)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn--danger w-100 fw-bold">Apply Deferral</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning">
+            <i class="bi bi-exclamation-triangle"></i> Active Fleet Deferrals
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Aircraft</th>
+                        <th>Deferred Item</th>
+                        <th>Time Remaining</th>
+                        <th>Clearance Sign-Off</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in deferrals %}
+                    <tr>
+                        <td><span class="badge badge--neutral">{{ d.aircraft_id | replace('Aircraft_', '') }}</span></td>
+                        <td class="fw-bold">{{ d.item_description }} <span class="badge badge--neutral ms-1">Cat {{ d.mel_category }}</span></td>
+                        
+                        <td>
+                            {% if d.days_remaining < 0 %}
+                                <span class="badge badge--danger">GROUNDED (Expired)</span>
+                            {% elif d.days_remaining <= 2 %}
+                                <span class="badge badge--warning">{{ d.days_remaining }} Days Left</span>
+                            {% else %}
+                                <span class="badge badge--success">{{ d.days_remaining }} Days Left</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td>
+                            <form action="{{ url_for('resolve_mel', deferral_id=d.deferral_id) }}" method="POST" class="d-flex gap-2 m-0">
+                                <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                    <option value="" disabled selected>Select Engineer...</option>
+                                    {% for eng in engineers %}
+                                        <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn--success btn--sm fw-bold">Sign</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted p-4">
+                            <i class="bi bi-check-circle fs-sm d-block mb-2 text-success" style="font-size: 2rem;"></i>
+                            Fleet is clear. No active MEL deferrals.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

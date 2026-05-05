@@ -1,0 +1,1448 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xml:base="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-MOA"
+         xmlns="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-MOA#"
+         xmlns:struct="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L1-Structural#"
+         xmlns:func="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L2-Functional#"
+         xmlns:behav="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L3-Behavioral#"
+         xmlns:mon="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L4-Monitoring#"
+         xmlns:maint="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L5-Maintenance#"
+         xmlns:life="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L6-Lifecycle#"
+         xmlns:env="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L7-Environmental#"
+         xmlns:base="http://www.semanticweb.org/dell/ontologies/2025/11/MyCampSystem#">
+
+<!-- ============================================================ -->
+<!--   CAMP Multi-Ontology Architecture (MOA)                     -->
+<!--   Aircraft Comprehensive Maintenance Programme               -->
+<!--   7-Layer Stack + Cross-Ontology Mappings + AI Reasoning     -->
+<!--   Extends: MyCampSystem (base layer)                         -->
+<!-- ============================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-MOA">
+  <rdfs:label xml:lang="en">CAMP Multi-Ontology Architecture</rdfs:label>
+  <rdfs:comment xml:lang="en">
+    Seven-layer multi-ontology architecture for the Comprehensive Aircraft Maintenance Programme (CAMP).
+    Layers: (1) Structural, (2) Functional, (3) Behavioral, (4) Monitoring,
+            (5) Maintenance, (6) Lifecycle, (7) Environmental.
+    Includes cross-ontology alignment axioms and an AI Reasoning Engine bridge.
+  </rdfs:comment>
+  <dc:creator>CAMP MOA Ontology Engineer</dc:creator>
+  <dc:date>2025-11-01</dc:date>
+  <owl:imports rdf:resource="http://www.semanticweb.org/dell/ontologies/2025/11/MyCampSystem"/>
+  <owl:versionInfo>2.0.0</owl:versionInfo>
+</owl:Ontology>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 1 — STRUCTURAL ONTOLOGY (Physical Hierarchy)               -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L1-Structural -->
+<!-- ================================================================ -->
+
+<!-- ── Sub-ontology declaration ── -->
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L1-Structural">
+  <rdfs:label xml:lang="en">Layer 1 – Structural Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Models the physical decomposition of the aircraft from airframe down to individual parts (ATA chapter aligned).</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L1 -->
+<owl:ObjectProperty rdf:about="#L1_isPartOf">
+  <rdfs:label xml:lang="en">isPartOf</rdfs:label>
+  <rdfs:comment xml:lang="en">Mereological containment: a physical part belongs to a parent assembly.</rdfs:comment>
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L1_PhysicalEntity"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L1_hasSubAssembly">
+  <owl:inverseOf rdf:resource="#L1_isPartOf"/>
+  <rdfs:label xml:lang="en">hasSubAssembly</rdfs:label>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L1_installedOn">
+  <rdfs:label xml:lang="en">installedOn</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a physical part or LRU to the aircraft or assembly it is currently installed on.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L1_AircraftSystem"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L1_hasATAChapter">
+  <rdfs:label xml:lang="en">hasATAChapter</rdfs:label>
+  <rdfs:comment xml:lang="en">Associates a component with its ATA 100 chapter classification.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L1_ATAChapter"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L1_hasZone">
+  <rdfs:label xml:lang="en">hasZone</rdfs:label>
+  <rdfs:comment xml:lang="en">Maps a physical entity to an aircraft zone (Boeing/Airbus zone numbering).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L1_AircraftZone"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L1 -->
+<owl:DatatypeProperty rdf:about="#L1_partNumber">
+  <rdfs:label xml:lang="en">partNumber</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L1_serialNumber">
+  <rdfs:label xml:lang="en">serialNumber</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L1_weight_kg">
+  <rdfs:label xml:lang="en">weight_kg</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L1_ataChapterCode">
+  <rdfs:label xml:lang="en">ataChapterCode</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_ATAChapter"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L1_zoneCode">
+  <rdfs:label xml:lang="en">zoneCode</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_AircraftZone"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L1 -->
+<owl:Class rdf:about="#L1_PhysicalEntity">
+  <rdfs:label xml:lang="en">PhysicalEntity</rdfs:label>
+  <rdfs:comment xml:lang="en">Root class for all tangible aircraft hardware objects.</rdfs:comment>
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <!-- Bridge to base ontology -->
+  <owl:equivalentClass rdf:resource="base:AircraftComponent"/>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_AircraftSystem">
+  <rdfs:subClassOf rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:label xml:lang="en">AircraftSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">A top-level system grouping (e.g. propulsion, avionics, hydraulics).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_Airframe">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">Airframe</rdfs:label>
+  <rdfs:comment xml:lang="en">Primary structure: fuselage, wings, empennage, nacelles, pylons.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_PropulsionSystem">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">PropulsionSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Engine, APU, and associated thrust-generating components.</rdfs:comment>
+  <owl:equivalentClass rdf:resource="base:Engine"/>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_HydraulicSystem">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">HydraulicSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Hydraulic generation, distribution, and actuation subsystem.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_FuelSystem">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">FuelSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Fuel storage, management, and transfer system.</rdfs:comment>
+  <owl:equivalentClass rdf:resource="base:FuelTank"/>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_AvionicsSystem">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">AvionicsSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Flight management, communication, and navigation avionics.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_LandingGearSystem">
+  <rdfs:subClassOf rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">LandingGearSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Main and nose landing gear, brakes, steering, and doors.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_LifeReplaceableUnit">
+  <rdfs:subClassOf rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:label xml:lang="en">LineReplaceableUnit</rdfs:label>
+  <rdfs:comment xml:lang="en">LRU — a component replaceable at line maintenance level.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_ShopReplaceableUnit">
+  <rdfs:subClassOf rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:label xml:lang="en">ShopReplaceableUnit</rdfs:label>
+  <rdfs:comment xml:lang="en">SRU — component replaceable only in a shop/overhaul environment.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_ATAChapter">
+  <rdfs:label xml:lang="en">ATAChapter</rdfs:label>
+  <rdfs:comment xml:lang="en">ATA 100 chapter classification node (e.g. ATA 71 — Power Plant).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_AircraftZone">
+  <rdfs:label xml:lang="en">AircraftZone</rdfs:label>
+  <rdfs:comment xml:lang="en">Spatial zone on the aircraft (100-series fuselage, 500-series empennage, etc.).</rdfs:comment>
+</owl:Class>
+
+<!-- Do-328 Structural Instances -->
+<owl:NamedIndividual rdf:about="#L1_Do328_001">
+  <rdf:type rdf:resource="#L1_AircraftSystem"/>
+  <rdfs:label xml:lang="en">Dornier Do 328-100 (MSN 001)</rdfs:label>
+  <L1_serialNumber>Do328-MSN-001</L1_serialNumber>
+  <L1_isPartOf rdf:resource="base:Aircraft_Do328_001"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L1_ATA71_PowerPlant">
+  <rdf:type rdf:resource="#L1_ATAChapter"/>
+  <rdfs:label xml:lang="en">ATA 71 — Power Plant</rdfs:label>
+  <L1_ataChapterCode>71</L1_ataChapterCode>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L1_ATA28_FuelSystem">
+  <rdf:type rdf:resource="#L1_ATAChapter"/>
+  <rdfs:label xml:lang="en">ATA 28 — Fuel</rdfs:label>
+  <L1_ataChapterCode>28</L1_ataChapterCode>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L1_ATA57_Wings">
+  <rdf:type rdf:resource="#L1_ATAChapter"/>
+  <rdfs:label xml:lang="en">ATA 57 — Wings</rdfs:label>
+  <L1_ataChapterCode>57</L1_ataChapterCode>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L1_Zone500_Empennage">
+  <rdf:type rdf:resource="#L1_AircraftZone"/>
+  <rdfs:label xml:lang="en">Zone 500 — Empennage</rdfs:label>
+  <L1_zoneCode>500</L1_zoneCode>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 2 — FUNCTIONAL ONTOLOGY (Component Functions)              -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L2-Functional -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L2-Functional">
+  <rdfs:label xml:lang="en">Layer 2 – Functional Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Captures what each component does — its functions, performance parameters, and functional dependencies.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L2 -->
+<owl:ObjectProperty rdf:about="#L2_performs">
+  <rdfs:label xml:lang="en">performs</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a physical component (L1) to its assigned function (L2).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L2_Function"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L2_dependsOnFunction">
+  <rdfs:label xml:lang="en">dependsOnFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Functional dependency — this function requires another function to be operative.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L2_Function"/>
+  <rdfs:range rdf:resource="#L2_Function"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L2_hasPerformanceParameter">
+  <rdfs:label xml:lang="en">hasPerformanceParameter</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_Function"/>
+  <rdfs:range rdf:resource="#L2_PerformanceParameter"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L2_hasFunctionalRequirement">
+  <rdfs:label xml:lang="en">hasFunctionalRequirement</rdfs:label>
+  <rdfs:comment xml:lang="en">Design or certification requirement governing a function.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L2_Function"/>
+  <rdfs:range rdf:resource="#L2_FunctionalRequirement"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L2 -->
+<owl:DatatypeProperty rdf:about="#L2_nominalValue">
+  <rdfs:label xml:lang="en">nominalValue</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_PerformanceParameter"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L2_unit">
+  <rdfs:label xml:lang="en">unit</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_PerformanceParameter"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L2_minValue">
+  <rdfs:label xml:lang="en">minValue</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_PerformanceParameter"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L2_maxValue">
+  <rdfs:label xml:lang="en">maxValue</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_PerformanceParameter"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L2_functionDescription">
+  <rdfs:label xml:lang="en">functionDescription</rdfs:label>
+  <rdfs:domain rdf:resource="#L2_Function"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L2 -->
+<owl:Class rdf:about="#L2_Function">
+  <rdfs:label xml:lang="en">Function</rdfs:label>
+  <rdfs:comment xml:lang="en">An intended capability or behaviour of an aircraft component or system.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_PropulsiveFunction">
+  <rdfs:subClassOf rdf:resource="#L2_Function"/>
+  <rdfs:label xml:lang="en">PropulsiveFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Generates thrust to move the aircraft (e.g. turboprop power output).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_FluidManagementFunction">
+  <rdfs:subClassOf rdf:resource="#L2_Function"/>
+  <rdfs:label xml:lang="en">FluidManagementFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Controls and distributes fluid (fuel, hydraulic, oil, bleed-air).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_StructuralSupportFunction">
+  <rdfs:subClassOf rdf:resource="#L2_Function"/>
+  <rdfs:label xml:lang="en">StructuralSupportFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Bears loads and maintains airframe integrity.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_NavigationFunction">
+  <rdfs:subClassOf rdf:resource="#L2_Function"/>
+  <rdfs:label xml:lang="en">NavigationFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Provides position, attitude, and navigation data.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_PowerGenerationFunction">
+  <rdfs:subClassOf rdf:resource="#L2_Function"/>
+  <rdfs:label xml:lang="en">PowerGenerationFunction</rdfs:label>
+  <rdfs:comment xml:lang="en">Electrical power generation (generators, APU, batteries).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_PerformanceParameter">
+  <rdfs:label xml:lang="en">PerformanceParameter</rdfs:label>
+  <rdfs:comment xml:lang="en">A measurable attribute that quantifies how well a function is performed.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L2_FunctionalRequirement">
+  <rdfs:label xml:lang="en">FunctionalRequirement</rdfs:label>
+  <rdfs:comment xml:lang="en">A design, airworthiness or operational requirement that a function must satisfy.</rdfs:comment>
+</owl:Class>
+
+<!-- L2 Instances -->
+<owl:NamedIndividual rdf:about="#L2_ThrustGeneration_PW119">
+  <rdf:type rdf:resource="#L2_PropulsiveFunction"/>
+  <rdfs:label xml:lang="en">Thrust Generation – PW119</rdfs:label>
+  <L2_functionDescription>Generate shaft power via turboprop cycle; rated at 1,900 SHP.</L2_functionDescription>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L2_FuelStorage_LeftTank">
+  <rdf:type rdf:resource="#L2_FluidManagementFunction"/>
+  <rdfs:label xml:lang="en">Fuel Storage – Left Wing Tank</rdfs:label>
+  <L2_functionDescription>Store and transfer jet fuel to the left engine feed system.</L2_functionDescription>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L2_WingLiftGeneration">
+  <rdf:type rdf:resource="#L2_StructuralSupportFunction"/>
+  <rdfs:label xml:lang="en">Lift Generation – Wing</rdfs:label>
+  <L2_functionDescription>Generate aerodynamic lift; support fuel tank loads and control surface loads.</L2_functionDescription>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L2_EGT_NominalParam">
+  <rdf:type rdf:resource="#L2_PerformanceParameter"/>
+  <rdfs:label xml:lang="en">EGT Nominal Range</rdfs:label>
+  <L2_nominalValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">750.0</L2_nominalValue>
+  <L2_maxValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">800.0</L2_maxValue>
+  <L2_minValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">400.0</L2_minValue>
+  <L2_unit>°C</L2_unit>
+</owl:NamedIndividual>
+
+<!-- Cross-link: L1 → L2 -->
+<owl:NamedIndividual rdf:about="base:PW119_Engine_Left">
+  <L2_performs rdf:resource="#L2_ThrustGeneration_PW119"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="base:Left_Wing_FuelTank">
+  <L2_performs rdf:resource="#L2_FuelStorage_LeftTank"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 3 — BEHAVIORAL ONTOLOGY (States & Failure Modes)           -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L3-Behavioral -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L3-Behavioral">
+  <rdfs:label xml:lang="en">Layer 3 – Behavioral Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Represents component and system states, state transitions, failure modes, and effects (FMEA aligned).</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L3 -->
+<owl:ObjectProperty rdf:about="#L3_hasState">
+  <rdfs:label xml:lang="en">hasState</rdfs:label>
+  <rdfs:comment xml:lang="en">Current operational state of a physical entity.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L3_OperationalState"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L3_transitionsTo">
+  <rdfs:label xml:lang="en">transitionsTo</rdfs:label>
+  <rdfs:comment xml:lang="en">Valid state transition from one state to another.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L3_OperationalState"/>
+  <rdfs:range rdf:resource="#L3_OperationalState"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L3_hasFailureMode">
+  <rdfs:label xml:lang="en">hasFailureMode</rdfs:label>
+  <rdfs:comment xml:lang="en">Associates a component with its possible failure modes (FMEA).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L3_FailureMode"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L3_hasEffect">
+  <rdfs:label xml:lang="en">hasEffect</rdfs:label>
+  <rdfs:comment xml:lang="en">Effect chain: failure mode causes an effect at component or system level.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="#L3_FailureEffect"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L3_mitigatedBy">
+  <rdfs:label xml:lang="en">mitigatedBy</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a failure mode to a maintenance task that mitigates or corrects it (L5 cross-link).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="base:MaintenanceTask"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L3_causedByFault">
+  <rdfs:label xml:lang="en">causedByFault</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a failure mode to its root cause fault (base ontology bridge).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="base:Fault"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L3 -->
+<owl:DatatypeProperty rdf:about="#L3_rpnScore">
+  <rdfs:label xml:lang="en">rpnScore</rdfs:label>
+  <rdfs:comment xml:lang="en">Risk Priority Number = Severity × Occurrence × Detection (FMEA).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L3_severity">
+  <rdfs:label xml:lang="en">severity</rdfs:label>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L3_occurrence">
+  <rdfs:label xml:lang="en">occurrence</rdfs:label>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L3_detection">
+  <rdfs:label xml:lang="en">detection</rdfs:label>
+  <rdfs:domain rdf:resource="#L3_FailureMode"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L3_stateName">
+  <rdfs:label xml:lang="en">stateName</rdfs:label>
+  <rdfs:domain rdf:resource="#L3_OperationalState"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L3 -->
+<owl:Class rdf:about="#L3_OperationalState">
+  <rdfs:label xml:lang="en">OperationalState</rdfs:label>
+  <rdfs:comment xml:lang="en">The current condition of a component from a functional standpoint.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_NominalState">
+  <rdfs:subClassOf rdf:resource="#L3_OperationalState"/>
+  <rdfs:label xml:lang="en">NominalState</rdfs:label>
+  <rdfs:comment xml:lang="en">Component operating within all design limits.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_DegradedState">
+  <rdfs:subClassOf rdf:resource="#L3_OperationalState"/>
+  <rdfs:label xml:lang="en">DegradedState</rdfs:label>
+  <rdfs:comment xml:lang="en">Component functional but outside optimal parameters; dispatch may be permitted with MEL.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_FailedState">
+  <rdfs:subClassOf rdf:resource="#L3_OperationalState"/>
+  <rdfs:label xml:lang="en">FailedState</rdfs:label>
+  <rdfs:comment xml:lang="en">Component has lost its intended function; aircraft is non-airworthy pending maintenance.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_UnderMaintenanceState">
+  <rdfs:subClassOf rdf:resource="#L3_OperationalState"/>
+  <rdfs:label xml:lang="en">UnderMaintenanceState</rdfs:label>
+  <rdfs:comment xml:lang="en">Component removed from service for scheduled or unscheduled maintenance.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_FailureMode">
+  <rdfs:label xml:lang="en">FailureMode</rdfs:label>
+  <rdfs:comment xml:lang="en">The manner in which a component fails — aligned to FMEA/MSG-3 methodology.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_StructuralFailureMode">
+  <rdfs:subClassOf rdf:resource="#L3_FailureMode"/>
+  <rdfs:label xml:lang="en">StructuralFailureMode</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_FunctionalFailureMode">
+  <rdfs:subClassOf rdf:resource="#L3_FailureMode"/>
+  <rdfs:label xml:lang="en">FunctionalFailureMode</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_LeakageFailureMode">
+  <rdfs:subClassOf rdf:resource="#L3_FailureMode"/>
+  <rdfs:label xml:lang="en">LeakageFailureMode</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_WearFailureMode">
+  <rdfs:subClassOf rdf:resource="#L3_FailureMode"/>
+  <rdfs:label xml:lang="en">WearFailureMode</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_FailureEffect">
+  <rdfs:label xml:lang="en">FailureEffect</rdfs:label>
+  <rdfs:comment xml:lang="en">The consequence of a failure mode at component, system, or aircraft level.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_SafetyEffect">
+  <rdfs:subClassOf rdf:resource="#L3_FailureEffect"/>
+  <rdfs:label xml:lang="en">SafetyEffect</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_OperationalEffect">
+  <rdfs:subClassOf rdf:resource="#L3_FailureEffect"/>
+  <rdfs:label xml:lang="en">OperationalEffect</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L3_EconomicEffect">
+  <rdfs:subClassOf rdf:resource="#L3_FailureEffect"/>
+  <rdfs:label xml:lang="en">EconomicEffect</rdfs:label>
+</owl:Class>
+
+<!-- L3 Instances -->
+<owl:NamedIndividual rdf:about="#L3_State_PW119Left_Nominal">
+  <rdf:type rdf:resource="#L3_NominalState"/>
+  <rdfs:label xml:lang="en">PW119 Left Engine – Nominal</rdfs:label>
+  <L3_stateName>Nominal</L3_stateName>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L3_State_PW119Left_OverTemp">
+  <rdf:type rdf:resource="#L3_DegradedState"/>
+  <rdfs:label xml:lang="en">PW119 Left Engine – Over-Temperature</rdfs:label>
+  <L3_stateName>DegradedOverTemp</L3_stateName>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L3_FM_EGT_Exceedance">
+  <rdf:type rdf:resource="#L3_FunctionalFailureMode"/>
+  <rdfs:label xml:lang="en">EGT Exceedance Failure Mode</rdfs:label>
+  <L3_severity rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">9</L3_severity>
+  <L3_occurrence rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">3</L3_occurrence>
+  <L3_detection rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</L3_detection>
+  <L3_rpnScore rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">54</L3_rpnScore>
+  <L3_causedByFault rdf:resource="base:EngineOverTempFault_001"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L3_Effect_ReducedTurbineLife">
+  <rdf:type rdf:resource="#L3_EconomicEffect"/>
+  <rdfs:label xml:lang="en">Effect: Reduced Turbine Blade Life</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="base:PW119_Engine_Left">
+  <L3_hasState rdf:resource="#L3_State_PW119Left_OverTemp"/>
+  <L3_hasFailureMode rdf:resource="#L3_FM_EGT_Exceedance"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 4 — MONITORING ONTOLOGY (Sensors & Telemetry)              -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L4-Monitoring -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L4-Monitoring">
+  <rdfs:label xml:lang="en">Layer 4 – Monitoring Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Models the sensor network, telemetry streams, ACARS/ACMS data, alert thresholds, and real-time health indicators.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L4 -->
+<owl:ObjectProperty rdf:about="#L4_hasSensor">
+  <rdfs:label xml:lang="en">hasSensor</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a monitored physical entity (L1) to its associated sensor.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L4_Sensor"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L4_generatesStream">
+  <rdfs:label xml:lang="en">generatesStream</rdfs:label>
+  <rdfs:comment xml:lang="en">A sensor generates one or more telemetry data streams.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_Sensor"/>
+  <rdfs:range rdf:resource="#L4_TelemetryStream"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L4_hasAlert">
+  <rdfs:label xml:lang="en">hasAlert</rdfs:label>
+  <rdfs:comment xml:lang="en">A telemetry stream triggers an alert when a threshold is breached.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:range rdf:resource="#L4_MonitoringAlert"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L4_alertIndicates">
+  <rdfs:label xml:lang="en">alertIndicates</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a monitoring alert to the behavioral failure mode it signals (L3 cross-link).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_MonitoringAlert"/>
+  <rdfs:range rdf:resource="#L3_FailureMode"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L4_forwardsTo">
+  <rdfs:label xml:lang="en">forwardsTo</rdfs:label>
+  <rdfs:comment xml:lang="en">Telemetry stream forwarded to a ground system or AI reasoning engine.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:range rdf:resource="#L4_GroundSystem"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L4_bridgesBaseSensorData">
+  <rdfs:label xml:lang="en">bridgesBaseSensorData</rdfs:label>
+  <rdfs:comment xml:lang="en">Alignment link: L4 Sensor corresponds to a base SensorData individual.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_Sensor"/>
+  <rdfs:range rdf:resource="base:SensorData"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L4 -->
+<owl:DatatypeProperty rdf:about="#L4_samplingRateHz">
+  <rdfs:label xml:lang="en">samplingRateHz</rdfs:label>
+  <rdfs:domain rdf:resource="#L4_Sensor"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L4_alertThreshold">
+  <rdfs:label xml:lang="en">alertThreshold</rdfs:label>
+  <rdfs:domain rdf:resource="#L4_MonitoringAlert"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L4_alertLevel">
+  <rdfs:label xml:lang="en">alertLevel</rdfs:label>
+  <rdfs:comment xml:lang="en">Warning, Caution, or Advisory.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L4_MonitoringAlert"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L4_currentValue">
+  <rdfs:label xml:lang="en">currentValue</rdfs:label>
+  <rdfs:domain rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L4_timestamp">
+  <rdfs:label xml:lang="en">timestamp</rdfs:label>
+  <rdfs:domain rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L4 -->
+<owl:Class rdf:about="#L4_Sensor">
+  <rdfs:label xml:lang="en">Sensor</rdfs:label>
+  <rdfs:comment xml:lang="en">A physical transducer that measures a parameter on the aircraft.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_TemperatureSensor">
+  <rdfs:subClassOf rdf:resource="#L4_Sensor"/>
+  <rdfs:label xml:lang="en">TemperatureSensor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_PressureSensor">
+  <rdfs:subClassOf rdf:resource="#L4_Sensor"/>
+  <rdfs:label xml:lang="en">PressureSensor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_VibrationSensor">
+  <rdfs:subClassOf rdf:resource="#L4_Sensor"/>
+  <rdfs:label xml:lang="en">VibrationSensor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_FuelQuantitySensor">
+  <rdfs:subClassOf rdf:resource="#L4_Sensor"/>
+  <rdfs:label xml:lang="en">FuelQuantitySensor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_StrainGaugeSensor">
+  <rdfs:subClassOf rdf:resource="#L4_Sensor"/>
+  <rdfs:label xml:lang="en">StrainGaugeSensor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_TelemetryStream">
+  <rdfs:label xml:lang="en">TelemetryStream</rdfs:label>
+  <rdfs:comment xml:lang="en">A time-series data stream produced by a sensor (ACARS, ACMS, QAR, FDR).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_ACARSStream">
+  <rdfs:subClassOf rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:label xml:lang="en">ACARSStream</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_QARStream">
+  <rdfs:subClassOf rdf:resource="#L4_TelemetryStream"/>
+  <rdfs:label xml:lang="en">QARStream (Quick Access Recorder)</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_MonitoringAlert">
+  <rdfs:label xml:lang="en">MonitoringAlert</rdfs:label>
+  <rdfs:comment xml:lang="en">An automated alert generated when a telemetry parameter exceeds its threshold.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L4_GroundSystem">
+  <rdfs:label xml:lang="en">GroundSystem</rdfs:label>
+  <rdfs:comment xml:lang="en">Ground-side system receiving and processing aircraft telemetry (e.g. AMOS, AIRMAN, AI engine).</rdfs:comment>
+</owl:Class>
+
+<!-- L4 Instances -->
+<owl:NamedIndividual rdf:about="#L4_EGT_Sensor_LeftEngine">
+  <rdf:type rdf:resource="#L4_TemperatureSensor"/>
+  <rdfs:label xml:lang="en">EGT Sensor – PW119 Left Engine</rdfs:label>
+  <L4_samplingRateHz rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">4.0</L4_samplingRateHz>
+  <L4_bridgesBaseSensorData rdf:resource="base:EGT_Left_Engine"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L4_EGT_Stream_Left">
+  <rdf:type rdf:resource="#L4_ACARSStream"/>
+  <rdfs:label xml:lang="en">EGT Telemetry Stream – Left Engine</rdfs:label>
+  <L4_currentValue rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">725.5</L4_currentValue>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L4_Alert_EGT_High">
+  <rdf:type rdf:resource="#L4_MonitoringAlert"/>
+  <rdfs:label xml:lang="en">Alert: EGT High – Left Engine</rdfs:label>
+  <L4_alertThreshold rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">800.0</L4_alertThreshold>
+  <L4_alertLevel>Warning</L4_alertLevel>
+  <L4_alertIndicates rdf:resource="#L3_FM_EGT_Exceedance"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L4_AMOS_GroundSystem">
+  <rdf:type rdf:resource="#L4_GroundSystem"/>
+  <rdfs:label xml:lang="en">AMOS MRO System</rdfs:label>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="base:PW119_Engine_Left">
+  <L4_hasSensor rdf:resource="#L4_EGT_Sensor_LeftEngine"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 5 — MAINTENANCE ONTOLOGY (Tasks & Regulations)             -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L5-Maintenance -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L5-Maintenance">
+  <rdfs:label xml:lang="en">Layer 5 – Maintenance Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Extends the base MyCampSystem maintenance classes with task planning, work packages, regulatory compliance (AD/SB/MPD), and resource allocation.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L5 -->
+<owl:ObjectProperty rdf:about="#L5_groupedInWorkPackage">
+  <rdfs:label xml:lang="en">groupedInWorkPackage</rdfs:label>
+  <rdfs:comment xml:lang="en">Maintenance tasks grouped into a structured work package.</rdfs:comment>
+  <rdfs:domain rdf:resource="base:MaintenanceTask"/>
+  <rdfs:range rdf:resource="#L5_WorkPackage"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L5_hasComplianceStatus">
+  <rdfs:label xml:lang="en">hasComplianceStatus</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="#L5_ComplianceStatus"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L5_referencesTask">
+  <rdfs:label xml:lang="en">referencesTask</rdfs:label>
+  <rdfs:comment xml:lang="en">Links an MPD task card to the maintenance task it defines.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L5_MPDTaskCard"/>
+  <rdfs:range rdf:resource="base:MaintenanceTask"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L5_tracedToAD">
+  <rdfs:label xml:lang="en">tracedToAD</rdfs:label>
+  <rdfs:comment xml:lang="en">Compliance traceability from a task or work package to a mandatory Airworthiness Directive.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="base:AirworthinessDirective"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L5_estimatesDowntime">
+  <rdfs:label xml:lang="en">estimatesDowntime</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="#L5_DowntimeEstimate"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L5_assignedToHangar">
+  <rdfs:label xml:lang="en">assignedToHangar</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="#L5_MaintenanceFacility"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L5 -->
+<owl:DatatypeProperty rdf:about="#L5_workPackageID">
+  <rdfs:label xml:lang="en">workPackageID</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L5_plannedStartDate">
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L5_plannedEndDate">
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L5_estimatedManHours">
+  <rdfs:domain rdf:resource="#L5_WorkPackage"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L5_mpdTaskNumber">
+  <rdfs:label xml:lang="en">mpdTaskNumber</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_MPDTaskCard"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L5_facilityICAO">
+  <rdfs:label xml:lang="en">facilityICAO</rdfs:label>
+  <rdfs:domain rdf:resource="#L5_MaintenanceFacility"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L5 -->
+<owl:Class rdf:about="#L5_WorkPackage">
+  <rdfs:label xml:lang="en">WorkPackage</rdfs:label>
+  <rdfs:comment xml:lang="en">A bundled set of maintenance tasks planned for a specific aircraft visit.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_LineWorkPackage">
+  <rdfs:subClassOf rdf:resource="#L5_WorkPackage"/>
+  <rdfs:label xml:lang="en">LineWorkPackage</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_HeavyWorkPackage">
+  <rdfs:subClassOf rdf:resource="#L5_WorkPackage"/>
+  <rdfs:label xml:lang="en">HeavyWorkPackage</rdfs:label>
+  <rdfs:comment xml:lang="en">C-Check or D-Check level work package.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_MPDTaskCard">
+  <rdfs:label xml:lang="en">MPDTaskCard</rdfs:label>
+  <rdfs:comment xml:lang="en">Maintenance Planning Document task card defining an interval-based maintenance requirement.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_ComplianceStatus">
+  <rdfs:label xml:lang="en">ComplianceStatus</rdfs:label>
+  <rdfs:comment xml:lang="en">Regulatory compliance status of a work package (Open, In-Progress, Closed, Overdue).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_MaintenanceFacility">
+  <rdfs:label xml:lang="en">MaintenanceFacility</rdfs:label>
+  <rdfs:comment xml:lang="en">A licensed MRO facility where maintenance is performed.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L5_DowntimeEstimate">
+  <rdfs:label xml:lang="en">DowntimeEstimate</rdfs:label>
+</owl:Class>
+
+<!-- L5 Instances -->
+<owl:NamedIndividual rdf:about="#L5_WP_EngineInspection_001">
+  <rdf:type rdf:resource="#L5_LineWorkPackage"/>
+  <rdfs:label xml:lang="en">Work Package – Engine Hot Section Inspection</rdfs:label>
+  <L5_workPackageID>WP-2025-ENG-001</L5_workPackageID>
+  <L5_plannedStartDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-01-15</L5_plannedStartDate>
+  <L5_plannedEndDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-01-17</L5_plannedEndDate>
+  <L5_estimatedManHours rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">24.0</L5_estimatedManHours>
+  <L5_tracedToAD rdf:resource="base:AD_Do328_Engine_001"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L5_Facility_Abuja_MRO">
+  <rdf:type rdf:resource="#L5_MaintenanceFacility"/>
+  <rdfs:label xml:lang="en">Abuja MRO Facility</rdfs:label>
+  <L5_facilityICAO>DNAA</L5_facilityICAO>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 6 — LIFECYCLE ONTOLOGY (Component History)                 -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L6-Lifecycle -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L6-Lifecycle">
+  <rdfs:label xml:lang="en">Layer 6 – Lifecycle Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Tracks the entire service history of components: manufacture, installation, removal, overhaul, and retirement. Enables airworthiness traceability and reliability analysis.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L6 -->
+<owl:ObjectProperty rdf:about="#L6_hasLifecycleEvent">
+  <rdfs:label xml:lang="en">hasLifecycleEvent</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a physical entity to events in its service history.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L6_LifecycleEvent"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L6_precedes">
+  <rdfs:label xml:lang="en">precedes</rdfs:label>
+  <rdfs:comment xml:lang="en">Temporal ordering of lifecycle events.</rdfs:comment>
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+  <rdfs:domain rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:range rdf:resource="#L6_LifecycleEvent"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L6_hasComponentRecord">
+  <rdfs:label xml:lang="en">hasComponentRecord</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a component to its authorised release certificate and birth record.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L6_ComponentRecord"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L6_recordedIn">
+  <rdfs:label xml:lang="en">recordedIn</rdfs:label>
+  <rdfs:comment xml:lang="en">Links a lifecycle event to the maintenance record (base:MaintenanceRecord) that documents it.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:range rdf:resource="base:MaintenanceRecord"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L6_hasReliabilityMetric">
+  <rdfs:label xml:lang="en">hasReliabilityMetric</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L6_ReliabilityMetric"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L6 -->
+<owl:DatatypeProperty rdf:about="#L6_eventDate">
+  <rdfs:domain rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L6_totalTimeInService_hours">
+  <rdfs:label xml:lang="en">totalTimeInService_hours</rdfs:label>
+  <rdfs:domain rdf:resource="#L6_ComponentRecord"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L6_totalCycles">
+  <rdfs:domain rdf:resource="#L6_ComponentRecord"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L6_hardTimeLimitHours">
+  <rdfs:label xml:lang="en">hardTimeLimitHours</rdfs:label>
+  <rdfs:comment xml:lang="en">Manufacturer life limit for hard-time components.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L6_ComponentRecord"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L6_mtbf_hours">
+  <rdfs:label xml:lang="en">mtbf_hours</rdfs:label>
+  <rdfs:comment xml:lang="en">Mean Time Between Failures in flight hours.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L6_ReliabilityMetric"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L6_dispatchReliability_pct">
+  <rdfs:label xml:lang="en">dispatchReliability_pct</rdfs:label>
+  <rdfs:domain rdf:resource="#L6_ReliabilityMetric"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L6 -->
+<owl:Class rdf:about="#L6_LifecycleEvent">
+  <rdfs:label xml:lang="en">LifecycleEvent</rdfs:label>
+  <rdfs:comment xml:lang="en">A significant event in a component's service life.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_ManufactureEvent">
+  <rdfs:subClassOf rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:label xml:lang="en">ManufactureEvent</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_InstallationEvent">
+  <rdfs:subClassOf rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:label xml:lang="en">InstallationEvent</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_RemovalEvent">
+  <rdfs:subClassOf rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:label xml:lang="en">RemovalEvent</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_OverhaulEvent">
+  <rdfs:subClassOf rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:label xml:lang="en">OverhaulEvent</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_RetirementEvent">
+  <rdfs:subClassOf rdf:resource="#L6_LifecycleEvent"/>
+  <rdfs:label xml:lang="en">RetirementEvent</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_ComponentRecord">
+  <rdfs:label xml:lang="en">ComponentRecord</rdfs:label>
+  <rdfs:comment xml:lang="en">The airworthiness dossier of a component: times, cycles, certifications, modification status.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L6_ReliabilityMetric">
+  <rdfs:label xml:lang="en">ReliabilityMetric</rdfs:label>
+  <rdfs:comment xml:lang="en">Statistical reliability data: MTBF, MTBUR, dispatch reliability rate.</rdfs:comment>
+</owl:Class>
+
+<!-- L6 Instances -->
+<owl:NamedIndividual rdf:about="#L6_PW119Left_Record">
+  <rdf:type rdf:resource="#L6_ComponentRecord"/>
+  <rdfs:label xml:lang="en">Component Record – PW119 Left Engine</rdfs:label>
+  <L6_totalTimeInService_hours rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">4580.5</L6_totalTimeInService_hours>
+  <L6_totalCycles rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">3210</L6_totalCycles>
+  <L6_hardTimeLimitHours rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">20000.0</L6_hardTimeLimitHours>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L6_PW119Left_Install_2020">
+  <rdf:type rdf:resource="#L6_InstallationEvent"/>
+  <rdfs:label xml:lang="en">Installation – PW119 Left (2020)</rdfs:label>
+  <L6_eventDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2020-03-15</L6_eventDate>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L6_PW119_Reliability">
+  <rdf:type rdf:resource="#L6_ReliabilityMetric"/>
+  <rdfs:label xml:lang="en">PW119 Fleet Reliability</rdfs:label>
+  <L6_mtbf_hours rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">6500.0</L6_mtbf_hours>
+  <L6_dispatchReliability_pct rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">99.3</L6_dispatchReliability_pct>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="base:PW119_Engine_Left">
+  <L6_hasComponentRecord rdf:resource="#L6_PW119Left_Record"/>
+  <L6_hasLifecycleEvent rdf:resource="#L6_PW119Left_Install_2020"/>
+  <L6_hasReliabilityMetric rdf:resource="#L6_PW119_Reliability"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- LAYER 7 — ENVIRONMENTAL ONTOLOGY (Operating Context)             -->
+<!-- http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L7-Environmental -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-L7-Environmental">
+  <rdfs:label xml:lang="en">Layer 7 – Environmental Ontology</rdfs:label>
+  <rdfs:comment xml:lang="en">Captures the operational environment: meteorological conditions, route profiles, regulatory jurisdiction, and environmental stressors affecting component degradation rates.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – L7 -->
+<owl:ObjectProperty rdf:about="#L7_operatesInEnvironment">
+  <rdfs:label xml:lang="en">operatesInEnvironment</rdfs:label>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L7_OperatingEnvironment"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L7_hasRouteProfile">
+  <rdfs:label xml:lang="en">hasRouteProfile</rdfs:label>
+  <rdfs:domain rdf:resource="base:FlightOperation"/>
+  <rdfs:range rdf:resource="#L7_RouteProfile"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L7_subjectToRegulation">
+  <rdfs:label xml:lang="en">subjectToRegulation</rdfs:label>
+  <rdfs:comment xml:lang="en">Links an aircraft or operation to the regulatory jurisdiction governing it.</rdfs:comment>
+  <rdfs:domain rdf:resource="base:Aircraft"/>
+  <rdfs:range rdf:resource="#L7_RegulatoryJurisdiction"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L7_affectedByStressor">
+  <rdfs:label xml:lang="en">affectedByStressor</rdfs:label>
+  <rdfs:comment xml:lang="en">Environmental stress factor acting on a component, accelerating degradation.</rdfs:comment>
+  <rdfs:domain rdf:resource="#L1_PhysicalEntity"/>
+  <rdfs:range rdf:resource="#L7_EnvironmentalStressor"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#L7_stressorModifiesFailureMode">
+  <rdfs:label xml:lang="en">stressorModifiesFailureMode</rdfs:label>
+  <rdfs:comment xml:lang="en">Environmental stressor increases the probability of a behavioural failure mode (L3 cross-link).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L7_EnvironmentalStressor"/>
+  <rdfs:range rdf:resource="#L3_FailureMode"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – L7 -->
+<owl:DatatypeProperty rdf:about="#L7_ambientTemperature_C">
+  <rdfs:domain rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L7_humidity_pct">
+  <rdfs:domain rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L7_corrosionCategory">
+  <rdfs:comment xml:lang="en">ISO 9223 corrosion category (C1–CX).</rdfs:comment>
+  <rdfs:domain rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L7_avgFlightDuration_min">
+  <rdfs:domain rdf:resource="#L7_RouteProfile"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L7_jurisdictionCode">
+  <rdfs:domain rdf:resource="#L7_RegulatoryJurisdiction"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#L7_stressorIntensity">
+  <rdfs:domain rdf:resource="#L7_EnvironmentalStressor"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – L7 -->
+<owl:Class rdf:about="#L7_OperatingEnvironment">
+  <rdfs:label xml:lang="en">OperatingEnvironment</rdfs:label>
+  <rdfs:comment xml:lang="en">The set of physical conditions surrounding the aircraft during operation.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_TropicalEnvironment">
+  <rdfs:subClassOf rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:label xml:lang="en">TropicalEnvironment</rdfs:label>
+  <rdfs:comment xml:lang="en">High temperature and humidity operating environment (e.g. West Africa routes).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_SandDustEnvironment">
+  <rdfs:subClassOf rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:label xml:lang="en">SandDustEnvironment</rdfs:label>
+  <rdfs:comment xml:lang="en">Operations in sandy/dusty conditions increasing compressor wear rates.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_MaritimeEnvironment">
+  <rdfs:subClassOf rdf:resource="#L7_OperatingEnvironment"/>
+  <rdfs:label xml:lang="en">MaritimeEnvironment</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_RouteProfile">
+  <rdfs:label xml:lang="en">RouteProfile</rdfs:label>
+  <rdfs:comment xml:lang="en">Characterisation of a typical flight segment: short-haul, medium-haul; climb/descent cycles.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_ShortHaulRoute">
+  <rdfs:subClassOf rdf:resource="#L7_RouteProfile"/>
+  <rdfs:label xml:lang="en">ShortHaulRoute</rdfs:label>
+  <rdfs:comment xml:lang="en">High cycle, low-hour utilisation (e.g. Lagos–Abuja, 45 min sectors).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_RegulatoryJurisdiction">
+  <rdfs:label xml:lang="en">RegulatoryJurisdiction</rdfs:label>
+  <rdfs:comment xml:lang="en">Aviation authority whose regulations govern the aircraft's maintenance programme.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_EnvironmentalStressor">
+  <rdfs:label xml:lang="en">EnvironmentalStressor</rdfs:label>
+  <rdfs:comment xml:lang="en">A specific environmental factor that accelerates component wear or degradation.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_HighTemperatureStressor">
+  <rdfs:subClassOf rdf:resource="#L7_EnvironmentalStressor"/>
+  <rdfs:label xml:lang="en">HighTemperatureStressor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_CorrosionStressor">
+  <rdfs:subClassOf rdf:resource="#L7_EnvironmentalStressor"/>
+  <rdfs:label xml:lang="en">CorrosionStressor</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#L7_ParticleIngestionStressor">
+  <rdfs:subClassOf rdf:resource="#L7_EnvironmentalStressor"/>
+  <rdfs:label xml:lang="en">ParticleIngestionStressor</rdfs:label>
+</owl:Class>
+
+<!-- L7 Instances -->
+<owl:NamedIndividual rdf:about="#L7_WestAfrica_TropicalEnv">
+  <rdf:type rdf:resource="#L7_TropicalEnvironment"/>
+  <rdfs:label xml:lang="en">West Africa Tropical Operating Environment</rdfs:label>
+  <L7_ambientTemperature_C rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">35.0</L7_ambientTemperature_C>
+  <L7_humidity_pct rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">82.0</L7_humidity_pct>
+  <L7_corrosionCategory>C3</L7_corrosionCategory>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L7_LagosAbuja_ShortHaul">
+  <rdf:type rdf:resource="#L7_ShortHaulRoute"/>
+  <rdfs:label xml:lang="en">Lagos–Abuja Short-Haul Route</rdfs:label>
+  <L7_avgFlightDuration_min rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">55.0</L7_avgFlightDuration_min>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L7_NCAA_Jurisdiction">
+  <rdf:type rdf:resource="#L7_RegulatoryJurisdiction"/>
+  <rdfs:label xml:lang="en">NCAA – Nigerian Civil Aviation Authority</rdfs:label>
+  <L7_jurisdictionCode>NCAA-NG</L7_jurisdictionCode>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#L7_HeatStressor_Nigeria">
+  <rdf:type rdf:resource="#L7_HighTemperatureStressor"/>
+  <rdfs:label xml:lang="en">High Ambient Temperature – Nigerian Operations</rdfs:label>
+  <L7_stressorIntensity>High</L7_stressorIntensity>
+  <L7_stressorModifiesFailureMode rdf:resource="#L3_FM_EGT_Exceedance"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="base:Aircraft_Do328_001">
+  <L7_subjectToRegulation rdf:resource="#L7_NCAA_Jurisdiction"/>
+  <L7_operatesInEnvironment rdf:resource="#L7_WestAfrica_TropicalEnv"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- AI REASONING ENGINE — Cross-Ontology Bridge                      -->
+<!-- ================================================================ -->
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-AIEngine">
+  <rdfs:label xml:lang="en">CAMP AI Reasoning Engine</rdfs:label>
+  <rdfs:comment xml:lang="en">Meta-layer that coordinates reasoning across all seven layers: ingests real-time telemetry (L4), evaluates against behavioral models (L3), queries lifecycle history (L6), incorporates environmental context (L7), and generates maintenance recommendations (L5) for compliant task execution.</rdfs:comment>
+</owl:Ontology>
+
+<!-- Object Properties – AI Engine -->
+<owl:ObjectProperty rdf:about="#AI_ingestsStream">
+  <rdfs:label xml:lang="en">ingestsStream</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#L4_TelemetryStream"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_evaluatesAgainst">
+  <rdfs:label xml:lang="en">evaluatesAgainst</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#L3_FailureMode"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_queriesLifecycle">
+  <rdfs:label xml:lang="en">queriesLifecycle</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#L6_ComponentRecord"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_appliesEnvironmentalContext">
+  <rdfs:label xml:lang="en">appliesEnvironmentalContext</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#L7_OperatingEnvironment"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_generates">
+  <rdfs:label xml:lang="en">generates</rdfs:label>
+  <rdfs:comment xml:lang="en">The reasoning engine outputs a maintenance recommendation.</rdfs:comment>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="base:MaintenanceRecommendation"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_recommendsWorkPackage">
+  <rdfs:label xml:lang="en">recommendsWorkPackage</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#L5_WorkPackage"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#AI_usesReasoningMethod">
+  <rdfs:label xml:lang="en">usesReasoningMethod</rdfs:label>
+  <rdfs:domain rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:range rdf:resource="#AI_ReasoningMethod"/>
+</owl:ObjectProperty>
+
+<!-- Datatype Properties – AI Engine -->
+<owl:DatatypeProperty rdf:about="#AI_confidenceScore">
+  <rdfs:label xml:lang="en">confidenceScore</rdfs:label>
+  <rdfs:comment xml:lang="en">0.0–1.0 confidence in the generated recommendation.</rdfs:comment>
+  <rdfs:domain rdf:resource="base:MaintenanceRecommendation"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#AI_urgencyLevel">
+  <rdfs:label xml:lang="en">urgencyLevel</rdfs:label>
+  <rdfs:comment xml:lang="en">Immediate / Within24h / NextScheduled / Monitor</rdfs:comment>
+  <rdfs:domain rdf:resource="base:MaintenanceRecommendation"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#AI_rulesFired">
+  <rdfs:label xml:lang="en">rulesFired</rdfs:label>
+  <rdfs:comment xml:lang="en">SWRL/SPARQL rules triggered during reasoning.</rdfs:comment>
+  <rdfs:domain rdf:resource="#AI_ReasoningSession"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<!-- Classes – AI Engine -->
+<owl:Class rdf:about="#AI_ReasoningEngine">
+  <rdfs:label xml:lang="en">AIReasoningEngine</rdfs:label>
+  <rdfs:comment xml:lang="en">The AI/ML + OWL-reasoner component that integrates all seven ontology layers to generate predictive and prescriptive maintenance intelligence.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_ReasoningMethod">
+  <rdfs:label xml:lang="en">ReasoningMethod</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_OWLReasoning">
+  <rdfs:subClassOf rdf:resource="#AI_ReasoningMethod"/>
+  <rdfs:label xml:lang="en">OWL-DL Reasoning</rdfs:label>
+  <rdfs:comment xml:lang="en">Description logic subsumption and consistency checking (HermiT/Pellet).</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_SPARQLReasoning">
+  <rdfs:subClassOf rdf:resource="#AI_ReasoningMethod"/>
+  <rdfs:label xml:lang="en">SPARQL Query Reasoning</rdfs:label>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_MLPredictiveModel">
+  <rdfs:subClassOf rdf:resource="#AI_ReasoningMethod"/>
+  <rdfs:label xml:lang="en">ML Predictive Model</rdfs:label>
+  <rdfs:comment xml:lang="en">Machine learning model (LSTM, GBT) predicting RUL from telemetry trends.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_SWRLRule">
+  <rdfs:subClassOf rdf:resource="#AI_ReasoningMethod"/>
+  <rdfs:label xml:lang="en">SWRLRule</rdfs:label>
+  <rdfs:comment xml:lang="en">Semantic Web Rule Language rule executing over the ontology graph.</rdfs:comment>
+</owl:Class>
+
+<owl:Class rdf:about="#AI_ReasoningSession">
+  <rdfs:label xml:lang="en">ReasoningSession</rdfs:label>
+  <rdfs:comment xml:lang="en">A single inference execution triggered by a monitoring alert or scheduled analysis.</rdfs:comment>
+</owl:Class>
+
+<!-- AI Engine Instances -->
+<owl:NamedIndividual rdf:about="#AI_CAMP_Engine_v1">
+  <rdf:type rdf:resource="#AI_ReasoningEngine"/>
+  <rdfs:label xml:lang="en">CAMP AI Reasoning Engine v1</rdfs:label>
+  <AI_ingestsStream rdf:resource="#L4_EGT_Stream_Left"/>
+  <AI_evaluatesAgainst rdf:resource="#L3_FM_EGT_Exceedance"/>
+  <AI_queriesLifecycle rdf:resource="#L6_PW119Left_Record"/>
+  <AI_appliesEnvironmentalContext rdf:resource="#L7_WestAfrica_TropicalEnv"/>
+  <AI_recommendsWorkPackage rdf:resource="#L5_WP_EngineInspection_001"/>
+  <AI_generates rdf:resource="#AI_Recommendation_EGT_001"/>
+  <AI_usesReasoningMethod rdf:resource="#AI_Method_OWL"/>
+  <AI_usesReasoningMethod rdf:resource="#AI_Method_SWRL"/>
+  <AI_usesReasoningMethod rdf:resource="#AI_Method_ML"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AI_Recommendation_EGT_001">
+  <rdf:type rdf:resource="base:MaintenanceRecommendation"/>
+  <rdfs:label xml:lang="en">AI Recommendation: Borescope EGT Hot Section – Left Engine</rdfs:label>
+  <base:recommendationText>EGT trending within 74.5°C of limit. Environmental heat stress (West Africa C3) accelerates degradation. Lifecycle record shows 4,580 TSN. Recommend borescope inspection within next 48 flight hours per AD-2024-328-E-001.</base:recommendationText>
+  <AI_confidenceScore rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.91</AI_confidenceScore>
+  <AI_urgencyLevel>Within24h</AI_urgencyLevel>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AI_Method_OWL">
+  <rdf:type rdf:resource="#AI_OWLReasoning"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AI_Method_SWRL">
+  <rdf:type rdf:resource="#AI_SWRLRule"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#AI_Method_ML">
+  <rdf:type rdf:resource="#AI_MLPredictiveModel"/>
+</owl:NamedIndividual>
+
+
+<!-- ================================================================ -->
+<!-- CROSS-ONTOLOGY MAPPING AXIOMS                                     -->
+<!-- Formal owl:equivalentClass, rdfs:subClassOf, and owl:sameAs      -->
+<!-- alignment between layers and base ontology                        -->
+<!-- ================================================================ -->
+
+<!-- L1 ↔ Base mappings -->
+<owl:Class rdf:about="#L1_PhysicalEntity">
+  <rdfs:subClassOf rdf:resource="base:AircraftComponent"/>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_PropulsionSystem">
+  <owl:equivalentClass rdf:resource="base:Engine"/>
+</owl:Class>
+
+<owl:Class rdf:about="#L1_FuelSystem">
+  <owl:equivalentClass rdf:resource="base:FuelTank"/>
+</owl:Class>
+
+<!-- L3 ↔ Base Fault alignment -->
+<owl:Class rdf:about="#L3_FailureMode">
+  <rdfs:subClassOf rdf:resource="base:Fault"/>
+</owl:Class>
+
+<!-- L4 ↔ Base SensorData alignment -->
+<owl:Class rdf:about="#L4_TelemetryStream">
+  <rdfs:subClassOf rdf:resource="base:SensorData"/>
+</owl:Class>
+
+<!-- L5 ↔ Base MaintenanceProcess alignment -->
+<owl:Class rdf:about="#L5_WorkPackage">
+  <rdfs:subClassOf rdf:resource="base:MaintenanceProcess"/>
+</owl:Class>
+
+<!-- L6 ↔ Base MaintenanceRecord alignment -->
+<owl:Class rdf:about="#L6_ComponentRecord">
+  <rdfs:subClassOf rdf:resource="base:MaintenanceRecord"/>
+</owl:Class>
+
+<!-- L7 ↔ Base RegulatoryRequirement alignment -->
+<owl:Class rdf:about="#L7_RegulatoryJurisdiction">
+  <rdfs:subClassOf rdf:resource="base:RegulatoryRequirement"/>
+</owl:Class>
+
+<!-- Individual alignments: same physical engine across layers -->
+<owl:SameIndividual>
+  <rdf:Description rdf:about="base:PW119_Engine_Left"/>
+  <rdf:Description rdf:about="#L1_Do328_PW119_Left_Instance"/>
+</owl:SameIndividual>
+
+<!-- ================================================================ -->
+<!-- SWRL-STYLE RULES (expressed as annotation properties)             -->
+<!-- Full SWRL execution requires Protégé + SWRLTab plugin            -->
+<!-- ================================================================ -->
+
+<owl:AnnotationProperty rdf:about="#swrlRule">
+  <rdfs:label xml:lang="en">SWRL Rule</rdfs:label>
+  <rdfs:comment xml:lang="en">Annotation encoding a SWRL production rule in human-readable form.</rdfs:comment>
+</owl:AnnotationProperty>
+
+<owl:Ontology rdf:about="http://www.semanticweb.org/dell/ontologies/2025/11/CAMP-MOA">
+  <swrlRule xml:lang="en">RULE-01 (EGT Threshold Breach → Alert):
+    L4_Sensor(?s) ∧ L4_generatesStream(?s,?stream) ∧ L4_currentValue(?stream,?val)
+    ∧ L4_alertThreshold(?alert,?thr) ∧ swrlb:greaterThan(?val,?thr)
+    → L4_hasAlert(?stream,?alert)</swrlRule>
+
+  <swrlRule xml:lang="en">RULE-02 (Alert + FailureMode → Degraded State):
+    L4_MonitoringAlert(?a) ∧ L4_alertIndicates(?a,?fm) ∧ L3_causedByFault(?fm,?fault)
+    ∧ base:affectsComponents(?fault,?comp)
+    → L3_hasState(?comp, L3_DegradedState)</swrlRule>
+
+  <swrlRule xml:lang="en">RULE-03 (Environmental Stressor Upgrades RPN):
+    L7_EnvironmentalStressor(?es) ∧ L7_stressorModifiesFailureMode(?es,?fm)
+    ∧ L7_stressorIntensity(?es,"High") ∧ L3_rpnScore(?fm,?rpn)
+    ∧ swrlb:multiply(?newRPN,?rpn,1.2)
+    → L3_rpnScore(?fm,?newRPN)</swrlRule>
+
+  <swrlRule xml:lang="en">RULE-04 (High RPN → Immediate Work Package):
+    L3_FailureMode(?fm) ∧ L3_rpnScore(?fm,?rpn) ∧ swrlb:greaterThan(?rpn,50)
+    ∧ L3_mitigatedBy(?fm,?task)
+    → L5_groupedInWorkPackage(?task,L5_HeavyWorkPackage)</swrlRule>
+
+  <swrlRule xml:lang="en">RULE-05 (Component near HardTimeLimit → Retirement Event):
+    L6_ComponentRecord(?cr) ∧ L6_totalTimeInService_hours(?cr,?tis)
+    ∧ L6_hardTimeLimitHours(?cr,?htl) ∧ swrlb:greaterThan(?tis, swrlb:subtract(?htl,500))
+    → L6_hasLifecycleEvent(L6_RetirementEvent)</swrlRule>
+
+  <swrlRule xml:lang="en">RULE-06 (AI Engine + Degraded State → Generate Recommendation):
+    AI_ReasoningEngine(?eng) ∧ AI_ingestsStream(?eng,?stream)
+    ∧ L4_hasAlert(?stream,?alert) ∧ L4_alertIndicates(?alert,?fm)
+    ∧ AI_evaluatesAgainst(?eng,?fm)
+    → AI_generates(?eng, MaintenanceRecommendation)</swrlRule>
+</owl:Ontology>
+
+</rdf:RDF>

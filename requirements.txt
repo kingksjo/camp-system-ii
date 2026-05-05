@@ -1,0 +1,9 @@
+Flask
+owlready2
+scikit-learn
+Werkzeug
+numpy
+scipy
+networkx
+neo4j
+pandas

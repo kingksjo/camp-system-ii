@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-calendar-week text-primary me-2"></i> Hangar Schedule & Work Orders</h1>
+    </div>
+</div>
+
+<div class="grid grid--2col-aside">
+    <div class="glass-panel border-start-info">
+        <div class="panel-header text-info">
+            <i class="bi bi-plus-circle"></i> Schedule Aircraft
+        </div>
+        <div class="panel-body">
+            <form action="{{ url_for('schedule_check') }}" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Select Aircraft</label>
+                    <select name="aircraft_id" class="form-select border-info" required>
+                        <option value="" disabled selected>Choose tail number...</option>
+                        {% for plane in fleet %}
+                            <option value="{{ plane.aircraft_id }}">{{ plane.registration }} ({{ plane.model }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Maintenance Check Type</label>
+                    <select name="check_type" class="form-select" required>
+                        <option value="A-Check">A-Check</option>
+                        <option value="B-Check">B-Check</option>
+                        <option value="C-Check">C-Check</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Hangar Induction Date</label>
+                    <input type="datetime-local" name="start_time" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Est. Completion Date</label>
+                    <input type="datetime-local" name="end_time" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn--primary w-100 fw-bold">Add to Schedule</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning">
+            <i class="bi bi-tools"></i> Active Hangar Work Orders
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Induction Date</th>
+                        <th>Event Details</th>
+                        <th>Release / Sign-Off</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_data %}
+                    <tr>
+                        <td class="fw-bold">{{ item.start_time.split(' ')[0] }}</td>
+                        <td>
+                            <!-- We can use a colored dot or simple badge since color is dynamic -->
+                            <span class="badge" style="background-color: {{ item.color }}; color: #fff;">{{ item.title }}</span>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('sign_off_schedule', record_id=item.record_id) }}" method="POST" class="d-flex gap-2 m-0">
+                                <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                    <option value="" disabled selected>Select Engineer...</option>
+                                    {% for eng in engineers %}
+                                        <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn--success btn--sm fw-bold">Release</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted p-4">
+                            <i class="bi bi-calendar-x fs-sm d-block mb-2" style="font-size: 2rem;"></i>
+                            No aircraft are currently scheduled for hangar maintenance.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

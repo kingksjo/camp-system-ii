@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Pilot Flight Log (PIREP)</h1>
+        <div class="page-subtitle">Digital Aircraft Technical Logbook</div>
+    </div>
+</div>
+
+<div class="grid grid--2col-aside">
+    <div class="glass-panel border-start-info">
+        <div class="panel-header text-info">
+            <i class="bi bi-pencil-square"></i> Log New Discrepancy
+        </div>
+        <div class="panel-body">
+            <form action="/flight_log" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Aircraft Registration</label>
+                    <select name="aircraft_id" class="form-select border-info" required>
+                        {% for plane in fleet %}
+                        <option value="{{ plane['aircraft_id'] }}">{{ plane['registration'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pilot Name / ID</label>
+                    <input type="text" name="reported_by" class="form-input" placeholder="e.g., Capt. Smith" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Discrepancy Description</label>
+                    <textarea name="discrepancy_text" class="form-textarea" rows="4" placeholder="Describe the fault or abnormal behavior observed during flight..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn--outline text-info w-100 fw-bold">Submit to Maintenance Control</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning">
+            <i class="bi bi-exclamation-triangle"></i> Open Pilot Reports
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Aircraft</th>
+                        <th>Reported By</th>
+                        <th>Discrepancy</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td class="fw-bold">{{ report['aircraft_id'].replace('Aircraft_', '') }}</td>
+                        <td>{{ report['reported_by'] }}</td>
+                        <td class="text-muted fs-sm">{{ report['discrepancy_text'] }}</td>
+                        <td><span class="badge badge--danger">{{ report['status'] }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-success p-4 fw-bold">
+                            <i class="bi bi-check-circle fs-sm me-2"></i> No open pilot reports.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

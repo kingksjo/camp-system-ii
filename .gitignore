@@ -1,0 +1,89 @@
+# Archives folder (utility scripts and backups)
+archives/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+.env
+.venv.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Database files (except tracked ontologies)
+*.db
+*.sqlite
+*.sqlite3
+session.db
+
+# Uploads and temporary files
+static/uploads/*
+!static/uploads/.gitkeep
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# IDE specific files
+.pylintrc
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node modules (if applicable)
+node_modules/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Flask instance folder
+instance/
+
+# Environment-specific files
+.env.local
+.env.*.local

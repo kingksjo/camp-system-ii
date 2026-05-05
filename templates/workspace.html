@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Maintenance Planning Workspace</h1>
+        <div class="page-subtitle">CAMO Engineering Control</div>
+    </div>
+</div>
+
+<div class="glass-panel border-start-info mb-4">
+    <div class="panel-header text-info">
+        <i class="bi bi-chat-left-text-fill"></i> Natural Language Rule Editor (NLP)
+    </div>
+    <div class="panel-body">
+        <form action="/add_swrl_rule" method="POST">
+            <div class="grid grid--2col-aside mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label">Safety Rule Name</label>
+                    <input type="text" name="rule_name" class="form-input" placeholder="e.g., ExtremeTempAlert" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Rule Description (Plain English)</label>
+                    <input type="text" name="rule_body" class="form-input" placeholder="e.g., If the temperature is greater than 1000 then classify as CriticalOverheat" required>
+                </div>
+            </div>
+            <div class="alert-bar alert-bar--info">
+                <i class="bi bi-info-circle-fill"></i>
+                <span class="fs-sm"><strong>NLP Guidelines:</strong> Use keywords like <em>temperature, pressure, greater than, less than</em>, and <em>classify as</em>. The system will automatically compile your English into strict Protégé SWRL syntax.</span>
+            </div>
+            <button type="submit" class="btn btn--outline w-100 fw-bold text-info">
+                <i class="bi bi-translate"></i> Translate & Inject into AI Reasoner
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="grid grid--2col mb-4">
+    <div class="glass-panel border-start-danger">
+        <div class="panel-header text-danger">
+            <i class="bi bi-envelope-exclamation"></i> Issue Directive by Aircraft Model
+        </div>
+        <div class="panel-body">
+            <form action="/add_directive" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label text-danger">Target Aircraft Model</label>
+                    <select name="target_model" class="form-select border-danger" required>
+                        {% for model in unique_models %}
+                            <option value="{{ model['model'] }}">{{ model['model'] }} Fleet</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid grid--2col mb-3">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Doc Type</label>
+                        <select name="doc_type" class="form-select" required>
+                            <option value="AD">AD (Mandatory)</option>
+                            <option value="SB">SB (Recommended)</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Reference Number</label>
+                        <input type="text" name="ref_number" class="form-input" placeholder="e.g., AD-2026-04" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Action Description</label>
+                    <textarea name="description" class="form-textarea" rows="2" placeholder="Details from OEM..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label text-info"><i class="bi bi-file-earmark-pdf"></i> Attach Official Document (PDF)</label>
+                    <input type="file" name="doc_pdf" class="form-input" accept="application/pdf">
+                </div>
+                <button type="submit" class="btn btn--danger w-100 fw-bold">Issue Fleet-Wide Directive</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="glass-panel border-start-info">
+        <div class="panel-header text-info">
+            <i class="bi bi-card-checklist"></i> Create Global Maintenance Task
+        </div>
+        <div class="panel-body">
+            <form action="/add_task" method="POST">
+                <div class="form-group">
+                    <label class="form-label text-info">Target Aircraft Model</label>
+                    <select name="target_model" class="form-select border-info" required>
+                        <option value="ALL">Apply to ALL Models (Entire Fleet)</option>
+                        {% for model in unique_models %}
+                            <option value="{{ model.model }}">{{ model.model }} Only</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid grid--2col mb-3">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Task ID</label>
+                        <input type="text" name="task_id" class="form-input" placeholder="TASK-001" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Task Name</label>
+                        <input type="text" name="task_name" class="form-input" placeholder="e.g., Landing Gear Lube" required>
+                    </div>
+                </div>
+                <div class="grid grid--2col mb-4">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Interval (Hours)</label>
+                        <input type="number" name="interval_hours" class="form-input" value="0" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Interval (Cycles)</label>
+                        <input type="number" name="interval_cycles" class="form-input" value="0" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn--outline text-info w-100 fw-bold">Add Task to Fleet Program</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid--2col mb-4">
+    <div class="glass-panel border-start-success">
+        <div class="panel-header text-success">
+            <i class="bi bi-airplane"></i> Induct New Aircraft
+        </div>
+        <div class="panel-body">
+            <form action="/add_aircraft" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label">Registration (Tail Number)</label>
+                    <input type="text" name="registration" class="form-input" placeholder="e.g., 5N-NEW" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Aircraft Model</label>
+                    <input type="text" name="model" class="form-input" placeholder="e.g., ATR-72" required>
+                </div>
+                <div class="grid grid--2col mb-3">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Current Hours</label>
+                        <input type="number" step="0.1" name="total_flight_hours" class="form-input" value="0.0" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Current Cycles</label>
+                        <input type="number" name="total_cycles" class="form-input" value="0" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label text-success"><i class="bi bi-file-earmark-pdf"></i> Attach Base AMM (PDF)</label>
+                    <input type="file" name="amm_pdf" class="form-input" accept="application/pdf">
+                </div>
+                <button type="submit" class="btn btn--success w-100 fw-bold">Add to Fleet Roster</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning">
+            <i class="bi bi-arrow-repeat"></i> Update Aircraft Maintenance Manual (AMM)
+        </div>
+        <div class="panel-body">
+            <form action="/update_amm" method="POST" enctype="multipart/form-data">
+                <div class="grid grid--2col mb-4">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Select Existing Aircraft</label>
+                        <select name="aircraft_id" class="form-select border-warning" required>
+                            {% for plane in fleet %}
+                                <option value="{{ plane['aircraft_id'] }}">{{ plane['registration'] }} ({{ plane['model'] }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label"><i class="bi bi-file-earmark-arrow-up-fill"></i> Upload New AMM Revision (PDF)</label>
+                        <input type="file" name="amm_pdf" class="form-input" accept="application/pdf" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn--warning w-100 fw-bold">Upload & Sync to Digital Twin</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header">
+        <i class="bi bi-list-columns-reverse"></i> Active Fleet Roster
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Model</th>
+                    <th>Total Hours</th>
+                    <th>Total Cycles</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plane in fleet %}
+                <tr>
+                    <td class="fw-bold">{{ plane['registration'] }}</td>
+                    <td><span class="badge badge--neutral">{{ plane['model'] }}</span></td>
+                    <td class="fw-bold text-info">{{ plane['total_flight_hours'] }}</td>
+                    <td class="fw-bold text-info">{{ plane['total_cycles'] }}</td>
+                    <td>
+                        <form action="/remove_aircraft/{{ plane['aircraft_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Are you sure you want to permanently decommission {{ plane['registration'] }}?');">
+                            <button type="submit" class="btn btn--danger btn--sm fw-bold"><i class="bi bi-trash3-fill"></i> Decommission</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
