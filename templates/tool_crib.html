@@ -106,7 +106,7 @@
                         <div class="d-flex gap-2">
                             
                             {% if tool['status'] == 'Available' %}
-                                <form action="{{ url_for('checkout_tool', tool_id=tool['tool_id']) }}" method="POST" class="d-flex m-0 gap-2">
+                                <form action="{{ url_for('tool_crib.checkout_tool', tool_id=tool['tool_id']) }}" method="POST" class="d-flex m-0 gap-2">
                                     <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
                                         <option value="" disabled selected>Engineer...</option>
                                         {% for eng in engineers %}
@@ -116,7 +116,7 @@
                                     <button type="submit" class="btn btn--outline btn--sm text-success fw-bold border-success">Check Out</button>
                                 </form>
                             {% elif tool['status'] == 'Checked Out' %}
-                                <form action="{{ url_for('checkin_tool', tool_id=tool['tool_id']) }}" method="POST" class="m-0">
+                                <form action="{{ url_for('tool_crib.checkin_tool', tool_id=tool['tool_id']) }}" method="POST" class="m-0">
                                     <button type="submit" class="btn btn--success btn--sm fw-bold">Return Tool</button>
                                 </form>
                             {% endif %}
@@ -134,7 +134,7 @@
                             </form>
                             {% endif %}
 
-                            <form action="/remove_tool/{{ tool['tool_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Permanently delete {{ tool['tool_name'] }} from inventory?');">
+                            <form action="/remove_tool/{{ tool['tool_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Permanently delete this tool from inventory?');">
                                 <button type="submit" class="btn btn--danger btn--sm fw-bold"><i class="bi bi-trash"></i></button>
                             </form>
                         </div>

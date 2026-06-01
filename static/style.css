@@ -471,6 +471,10 @@ a:hover {
 .badge--success { background: var(--status-success-bg); color: #6ee7b7; border: 1px solid var(--status-success-border); }
 .badge--info { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
 .badge--neutral { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.badge--schedule-a { background-color: #fd7e14; color: #fff; }
+.badge--schedule-b { background-color: #6c757d; color: #fff; }
+.badge--schedule-c { background-color: #212529; color: #fff; }
+.badge--schedule-default { background-color: #0d6efd; color: #fff; }
 
 /* Alert Bars */
 .alert-bar {

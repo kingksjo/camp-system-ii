@@ -13,7 +13,7 @@
             <i class="bi bi-plus-circle"></i> Schedule Aircraft
         </div>
         <div class="panel-body">
-            <form action="{{ url_for('schedule_check') }}" method="POST">
+            <form action="{{ url_for('calendar.schedule_check') }}" method="POST">
                 <div class="form-group">
                     <label class="form-label">Select Aircraft</label>
                     <select name="aircraft_id" class="form-select border-info" required>
@@ -63,10 +63,11 @@
                         <td class="fw-bold">{{ item.start_time.split(' ')[0] }}</td>
                         <td>
                             <!-- We can use a colored dot or simple badge since color is dynamic -->
-                            <span class="badge" style="background-color: {{ item.color }}; color: #fff;">{{ item.title }}</span>
+                            {% set schedule_badge_class = {'#fd7e14': 'badge--schedule-a', '#6c757d': 'badge--schedule-b', '#212529': 'badge--schedule-c', '#0d6efd': 'badge--schedule-default'}.get(item.color, 'badge--schedule-default') %}
+                            <span class="badge {{ schedule_badge_class }}">{{ item.title }}</span>
                         </td>
                         <td>
-                            <form action="{{ url_for('sign_off_schedule', record_id=item.record_id) }}" method="POST" class="d-flex gap-2 m-0">
+                            <form action="{{ url_for('calendar.sign_off_schedule', record_id=item.record_id) }}" method="POST" class="d-flex gap-2 m-0">
                                 <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
                                     <option value="" disabled selected>Select Engineer...</option>
                                     {% for eng in engineers %}

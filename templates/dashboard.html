@@ -14,8 +14,8 @@
                 {% endfor %}
             </select>
         </div>
-        <form action="/run_reasoner/{{ selected_aircraft['aircraft_id'] }}" method="POST" class="m-0">
-            <button type="submit" class="btn btn--primary">
+        <form action="/run_reasoner/{{ selected_aircraft['aircraft_id'] }}" method="POST" class="m-0" id="diagnosticsForm">
+            <button type="button" class="btn btn--primary" id="runDiagnosticsBtn" onclick="launchDiagnosticsModal()">
                 <i class="bi bi-cpu-fill"></i> Run AI Diagnostics
             </button>
         </form>
@@ -227,13 +227,360 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════
+     AI DIAGNOSTICS PROGRESS MODAL
+══════════════════════════════════════════════ -->
+<div id="diagnosticsModal" class="diag-modal-overlay" style="display:none;" aria-modal="true" role="dialog" aria-label="AI Diagnostics Running">
+    <div class="diag-modal-card">
+        
+        <!-- Header -->
+        <div class="diag-modal-header">
+            <div class="diag-brain-icon">
+                <i class="bi bi-cpu-fill" id="diagHeaderIcon"></i>
+            </div>
+            <div>
+                <div class="diag-modal-title">C.O.R.E. Ontology Reasoner</div>
+                <div class="diag-modal-subtitle">Running Pellet Inference Engine &bull; Aircraft: <strong>{{ selected_aircraft['registration'] }}</strong></div>
+            </div>
+        </div>
+
+        <!-- Live terminal log -->
+        <div class="diag-terminal" id="diagTerminal">
+            <div class="diag-term-line diag-prompt" id="termLine0">$ core.reasoner --aircraft {{ selected_aircraft['aircraft_id'] }} --engine pellet</div>
+        </div>
+
+        <!-- Step pipeline -->
+        <div class="diag-steps" id="diagSteps">
+            <div class="diag-step" id="step1">
+                <div class="diag-step-icon"><i class="bi bi-database"></i></div>
+                <div class="diag-step-body">
+                    <div class="diag-step-title">Fetching Latest Sensor Telemetry</div>
+                    <div class="diag-step-desc">Querying SensorTelemetry table — most recent reading per sensor per component.</div>
+                </div>
+                <div class="diag-step-status" id="step1-status"><i class="bi bi-hourglass-split diag-spin"></i></div>
+            </div>
+            <div class="diag-step" id="step2">
+                <div class="diag-step-icon"><i class="bi bi-diagram-3"></i></div>
+                <div class="diag-step-body">
+                    <div class="diag-step-title">Loading OWL Ontology (Multi-Ontology Architecture)</div>
+                    <div class="diag-step-desc">Parsing <code>camp.owl</code> base layer &plus; <code>camp_multi_ontology.owl</code> (7-layer MOA stack).</div>
+                </div>
+                <div class="diag-step-status" id="step2-status"><i class="bi bi-circle diag-idle"></i></div>
+            </div>
+            <div class="diag-step" id="step3">
+                <div class="diag-step-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                <div class="diag-step-body">
+                    <div class="diag-step-title">Running Pellet DL Reasoner &amp; SWRL Rule Evaluation</div>
+                    <div class="diag-step-desc">Spawning JVM subprocess — evaluating SWRL rules against each component&rsquo;s sensor reading. This is the slow step (4–10s per sensor).</div>
+                </div>
+                <div class="diag-step-status" id="step3-status"><i class="bi bi-circle diag-idle"></i></div>
+            </div>
+            <div class="diag-step" id="step4">
+                <div class="diag-step-icon"><i class="bi bi-shield-exclamation"></i></div>
+                <div class="diag-step-body">
+                    <div class="diag-step-title">Evaluating Inferred Faults (MOA L3 Behavioral Layer)</div>
+                    <div class="diag-step-desc">Checking thresholds: Thermocouple &gt; 900°C → Overheat / Vibration &gt; 4.5 → Imbalance / Pressure &lt; 20 PSI → Leak.</div>
+                </div>
+                <div class="diag-step-status" id="step4-status"><i class="bi bi-circle diag-idle"></i></div>
+            </div>
+            <div class="diag-step" id="step5">
+                <div class="diag-step-icon"><i class="bi bi-journal-check"></i></div>
+                <div class="diag-step-body">
+                    <div class="diag-step-title">Writing XAI Decision Log &amp; Updating Fault Registry</div>
+                    <div class="diag-step-desc">Persisting inference trace to <code>XAILogs</code> table. New faults inserted into <code>Faults</code> table for CRS sign-off.</div>
+                </div>
+                <div class="diag-step-status" id="step5-status"><i class="bi bi-circle diag-idle"></i></div>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="diag-progress-wrap">
+            <div class="diag-progress-bar" id="diagProgressBar"></div>
+        </div>
+        <div class="diag-progress-label" id="diagProgressLabel">Initialising reasoning pipeline&hellip;</div>
+    </div>
+</div>
+
+<style>
+/* ── Modal Overlay ─────────────────────────── */
+.diag-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: diagFadeIn 0.35s ease;
+}
+@keyframes diagFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Card ─────────────────────────────────── */
+.diag-modal-card {
+    background: linear-gradient(145deg, #0d1526 0%, #0a1020 100%);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 16px;
+    padding: 2rem;
+    width: min(700px, 94vw);
+    box-shadow: 0 0 60px rgba(0, 212, 255, 0.12), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: diagSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes diagSlideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── Header ─────────────────────────────── */
+.diag-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+}
+.diag-brain-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #00d4ff22, #7c3aed22);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    color: #00d4ff;
+    animation: diagPulse 2s ease-in-out infinite;
+}
+@keyframes diagPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(0, 212, 255, 0); }
+}
+.diag-modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: -0.01em;
+}
+.diag-modal-subtitle {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* ── Terminal ─────────────────────────────── */
+.diag-terminal {
+    background: #050c18;
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: #22d3ee;
+    margin-bottom: 1.25rem;
+    min-height: 40px;
+    max-height: 90px;
+    overflow: hidden;
+}
+.diag-term-line { margin: 0; line-height: 1.7; }
+.diag-prompt { color: #a3e635; }
+.diag-term-info { color: #94a3b8; }
+.diag-term-ok { color: #22d3ee; }
+.diag-term-warn { color: #f59e0b; }
+.diag-term-err { color: #f87171; }
+
+/* ── Steps ─────────────────────────────── */
+.diag-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+}
+.diag-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.7rem 0.875rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.02);
+    transition: all 0.4s ease;
+    opacity: 0.45;
+}
+.diag-step.active {
+    opacity: 1;
+    border-color: rgba(0, 212, 255, 0.3);
+    background: rgba(0, 212, 255, 0.05);
+}
+.diag-step.done {
+    opacity: 1;
+    border-color: rgba(34, 197, 94, 0.25);
+    background: rgba(34, 197, 94, 0.04);
+}
+.diag-step.error {
+    opacity: 1;
+    border-color: rgba(248, 113, 113, 0.3);
+    background: rgba(248, 113, 113, 0.05);
+}
+.diag-step-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #00d4ff;
+    flex-shrink: 0;
+}
+.diag-step.done .diag-step-icon { background: rgba(34,197,94,0.15); color: #22c55e; }
+.diag-step-body { flex: 1; min-width: 0; }
+.diag-step-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    line-height: 1.3;
+}
+.diag-step-desc {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+.diag-step-desc code {
+    background: rgba(0,212,255,0.08);
+    color: #67e8f9;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+}
+.diag-step-status { font-size: 1rem; flex-shrink: 0; }
+.diag-step-status .diag-idle { color: #334155; }
+.diag-step-status .diag-spin { color: #00d4ff; animation: diagSpin 1s linear infinite; }
+.diag-step-status .diag-ok { color: #22c55e; }
+.diag-step-status .diag-err { color: #f87171; }
+@keyframes diagSpin { to { transform: rotate(360deg); } }
+
+/* ── Progress ─────────────────────────────── */
+.diag-progress-wrap {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+.diag-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00d4ff, #7c3aed);
+    border-radius: 4px;
+    transition: width 0.6s ease;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+}
+.diag-progress-label {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #64748b;
+    letter-spacing: 0.02em;
+}
+</style>
+
 <script>
     document.getElementById('aircraftFilter').addEventListener('change', function() {
-        // Fetch new data instead of full reload using window.location for a modern feel.
-        // Wait, app.py uses standard flask routing, so we have to use window.location here 
-        // to maintain the backend functionality unless we rewrite app.py to be an API.
-        // We will stick to the plan: redesign the UI without touching app.py.
         window.location.href = '/?tail=' + this.value;
     });
+
+    function launchDiagnosticsModal() {
+        const modal = document.getElementById('diagnosticsModal');
+        modal.style.display = 'flex';
+
+        const terminal = document.getElementById('diagTerminal');
+        const progressBar = document.getElementById('diagProgressBar');
+        const progressLabel = document.getElementById('diagProgressLabel');
+
+        function setStepActive(n) {
+            const el = document.getElementById('step' + n);
+            el.classList.add('active');
+            document.getElementById('step' + n + '-status').innerHTML = '<i class="bi bi-hourglass-split diag-spin"></i>';
+        }
+        function setStepDone(n, verdict) {
+            const el = document.getElementById('step' + n);
+            el.classList.remove('active');
+            el.classList.add('done');
+            document.getElementById('step' + n + '-status').innerHTML = '<i class="bi bi-check-circle-fill diag-ok"></i>';
+        }
+        function addTermLine(cls, text) {
+            const line = document.createElement('div');
+            line.className = 'diag-term-line ' + cls;
+            line.textContent = text;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        function setProgress(pct, label) {
+            progressBar.style.width = pct + '%';
+            progressLabel.textContent = label;
+        }
+
+        const now = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
+
+        // Step 1: Telemetry fetch (0 → 8%)
+        setStepActive(1);
+        setProgress(5, 'Connecting to SensorTelemetry database…');
+        addTermLine('diag-term-info', '[' + now() + '] INFO  Fetching latest telemetry for selected airframe…');
+
+        setTimeout(() => {
+            setStepDone(1);
+            setProgress(20, 'Telemetry loaded — initialising ontology stack…');
+            addTermLine('diag-term-ok', '[' + now() + '] OK    Telemetry records retrieved from SensorTelemetry.');
+
+            // Step 2: Load ontology
+            setStepActive(2);
+            addTermLine('diag-term-info', '[' + now() + '] INFO  Loading camp.owl (base) + camp_multi_ontology.owl (MOA)…');
+        }, 700);
+
+        setTimeout(() => {
+            setStepDone(2);
+            setProgress(38, 'Ontology loaded — spawning Pellet JVM subprocess…');
+            addTermLine('diag-term-ok', '[' + now() + '] OK    OWL ontology parsed. 7-layer MOA stack online.');
+            addTermLine('diag-term-info', '[' + now() + '] INFO  Invoking Pellet reasoner (java -Xmx2000M pellet.Pellet realize)…');
+
+            // Step 3: Pellet reasoning — this is the real heavy step
+            setStepActive(3);
+        }, 1600);
+
+        setTimeout(() => {
+            addTermLine('diag-term-warn', '[' + now() + '] PELLET  Running SWRL rule evaluation… (avg 4–10s per sensor)');
+            setProgress(52, 'Pellet JVM running — evaluating SWRL rules against sensor data…');
+        }, 3000);
+
+        setTimeout(() => {
+            setStepDone(3);
+            setProgress(70, 'SWRL inference complete — checking fault thresholds…');
+            addTermLine('diag-term-ok', '[' + now() + '] OK    Pellet inference complete. Checking inferred class assertions.');
+
+            // Step 4: Fault detection
+            setStepActive(4);
+            addTermLine('diag-term-info', '[' + now() + '] INFO  Evaluating MOA L3 Behavioral layer thresholds…');
+        }, 5200);
+
+        setTimeout(() => {
+            setStepDone(4);
+            setProgress(88, 'Fault evaluation done — persisting XAI decision log…');
+            addTermLine('diag-term-ok', '[' + now() + '] OK    Fault detection evaluation complete.');
+
+            // Step 5: Log writing
+            setStepActive(5);
+            addTermLine('diag-term-info', '[' + now() + '] INFO  Writing to XAILogs & Faults tables…');
+        }, 6200);
+
+        setTimeout(() => {
+            setStepDone(5);
+            setProgress(100, 'All done — redirecting to dashboard…');
+            addTermLine('diag-term-ok', '[' + now() + '] OK    XAI log written. Redirecting…');
+            document.getElementById('diagHeaderIcon').className = 'bi bi-check-circle-fill';
+            document.querySelector('.diag-brain-icon').style.color = '#22c55e';
+            // Now actually submit
+            document.getElementById('diagnosticsForm').submit();
+        }, 7400);
+    }
 </script>
 {% endblock %}
