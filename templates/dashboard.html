@@ -244,6 +244,9 @@
             </div>
         </div>
 
+        <!-- Horizontal Body: Terminal (left) + Steps (right) -->
+        <div class="diag-modal-body">
+
         <!-- Live terminal log -->
         <div class="diag-terminal" id="diagTerminal">
             <div class="diag-term-line diag-prompt" id="termLine0">$ core.reasoner --aircraft {{ selected_aircraft['aircraft_id'] }} --engine pellet</div>
@@ -293,6 +296,8 @@
             </div>
         </div>
 
+        </div><!-- /.diag-modal-body -->
+
         <!-- Progress bar -->
         <div class="diag-progress-wrap">
             <div class="diag-progress-bar" id="diagProgressBar"></div>
@@ -322,9 +327,15 @@
     border: 1px solid rgba(0, 212, 255, 0.25);
     border-radius: 16px;
     padding: 2rem;
-    width: min(700px, 94vw);
+    width: min(980px, 95vw);
     box-shadow: 0 0 60px rgba(0, 212, 255, 0.12), 0 0 0 1px rgba(255,255,255,0.04);
     animation: diagSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.diag-modal-body {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    align-items: flex-start;
 }
 @keyframes diagSlideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
@@ -375,10 +386,11 @@
     font-family: 'Courier New', monospace;
     font-size: 0.72rem;
     color: #22d3ee;
-    margin-bottom: 1.25rem;
-    min-height: 40px;
-    max-height: 90px;
-    overflow: hidden;
+    margin-bottom: 0;
+    flex: 0 0 48%;
+    min-height: 260px;
+    max-height: 260px;
+    overflow-y: auto;
 }
 .diag-term-line { margin: 0; line-height: 1.7; }
 .diag-prompt { color: #a3e635; }
@@ -391,8 +403,11 @@
 .diag-steps {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 1.25rem;
+    gap: 0.5rem;
+    flex: 1;
+    margin-bottom: 0;
+    max-height: 260px;
+    overflow-y: auto;
 }
 .diag-step {
     display: flex;
