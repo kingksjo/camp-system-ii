@@ -72,7 +72,7 @@
                         
                         <td>
                             <form action="{{ url_for('mel.resolve_mel', deferral_id=d.deferral_id) }}" method="POST" class="d-flex gap-2 m-0">
-                                <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                <select name="engineer_id" class="form-select form-select--sm" style="min-width: 150px;" required>
                                     <option value="" disabled selected>Select Engineer...</option>
                                     {% for eng in engineers %}
                                         <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>

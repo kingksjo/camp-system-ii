@@ -85,7 +85,7 @@
         <!-- Glassmorphic Top Nav -->
         <header class="top-nav">
             <button class="nav-toggle" id="sidebarToggle" title="Toggle Sidebar">
-                <i class="bi bi-list"></i>
+                <i class="bi bi-arrow-bar-left"></i>
             </button>
             
             <div class="system-status">
@@ -115,6 +115,14 @@
                 sidebar.classList.remove('collapsed');
             } else {
                 sidebar.classList.toggle('collapsed');
+            }
+            
+            // Dynamic arrow flip based on sidebar state
+            const icon = toggleBtn.querySelector('i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.className = 'bi bi-arrow-bar-right';
+            } else {
+                icon.className = 'bi bi-arrow-bar-left';
             }
         });
         

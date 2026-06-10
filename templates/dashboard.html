@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
+<!-- ── TIER 1: Page Header ─────────────────────────────────────── -->
 <div class="page-header">
     <div>
         <h1 class="page-title">Fleet Diagnostics <span class="text-muted fw-bold">| Digital Twin</span></h1>
@@ -22,121 +23,86 @@
     </div>
 </div>
 
-<div class="grid grid--2col">
-    <!-- LEFT COLUMN -->
-    <div class="d-flex flex-column gap-4">
-        
-        <!-- Airframe Limits -->
-        <div class="glass-panel border-start-info">
-            <div class="panel-header text-info">
-                <i class="bi bi-speedometer2"></i> Airframe Limits
-            </div>
-            <div class="panel-body d-flex gap-4">
-                <div class="stat-card w-100">
-                    <div class="stat-label">Flight Hours</div>
-                    <div class="stat-value">{{ selected_aircraft['total_flight_hours'] }}</div>
-                </div>
-                <div class="stat-card w-100">
-                    <div class="stat-label">Flight Cycles</div>
-                    <div class="stat-value">{{ selected_aircraft['total_cycles'] }}</div>
-                </div>
-            </div>
-        </div>
+<!-- ── TIER 2: Full-Width Aircraft Status Banner ───────────────── -->
+{% if faults|length > 0 %}
+<div class="alert-bar alert-bar--danger justify-content-center mb-4">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div class="text-center">
+        <div class="fw-bold mb-1">AIRCRAFT ON GROUND (AOG) — {{ selected_aircraft['registration'] }}</div>
+        <span class="badge badge--danger">Flight Status: Grounded &bull; {{ faults|length }} Active Fault(s) Detected</span>
+    </div>
+</div>
+{% else %}
+<div class="alert-bar alert-bar--success justify-content-center mb-4">
+    <i class="bi bi-shield-check"></i>
+    <div class="text-center">
+        <div class="fw-bold mb-1">AIRCRAFT AIRWORTHY — {{ selected_aircraft['registration'] }}</div>
+        <span class="badge badge--success">Flight Status: Cleared for Dispatch</span>
+    </div>
+</div>
+{% endif %}
 
-        <!-- Sensor Telemetry -->
-        <div class="glass-panel">
-            <div class="panel-header text-warning">
-                <i class="bi bi-activity"></i> Live Sensor Telemetry
-            </div>
-            <div class="table-responsive" style="max-height: 350px;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Component</th>
-                            <th>Sensor</th>
-                            <th class="text-right">Reading</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in telemetry %}
-                        <tr>
-                            <td class="fw-bold">{{ item['component_id'] }}</td>
-                            <td class="text-muted">{{ item['sensor_type'] }}</td>
-                            <td class="text-right fw-bold {% if item['reading_value'] > 900 %}text-danger{% else %}text-success{% endif %}">
-                                {{ item['reading_value'] }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<!-- ── TIER 3: Quick Stats Strip ──────────────────────────────── -->
+<div class="grid grid--4col mb-4">
+    <div class="glass-panel p-3 text-center">
+        <div class="stat-label">Flight Hours</div>
+        <div class="stat-value">{{ selected_aircraft['total_flight_hours'] }}</div>
+    </div>
+    <div class="glass-panel p-3 text-center">
+        <div class="stat-label">Flight Cycles</div>
+        <div class="stat-value">{{ selected_aircraft['total_cycles'] }}</div>
+    </div>
+    <div class="glass-panel p-3 text-center {% if faults|length > 0 %}border-start-danger{% else %}border-start-success{% endif %}">
+        <div class="stat-label">Active Faults</div>
+        <div class="stat-value {% if faults|length > 0 %}text-danger{% else %}text-success{% endif %}">{{ faults|length }}</div>
+    </div>
+    <div class="glass-panel p-3 text-center {% if directives|length > 0 %}border-start-warning{% else %}border-start-success{% endif %}">
+        <div class="stat-label">Open Directives</div>
+        <div class="stat-value {% if directives|length > 0 %}text-warning{% else %}text-success{% endif %}">{{ directives|length }}</div>
+    </div>
+</div>
 
-        <!-- Type Directives -->
-        <div class="glass-panel">
-            <div class="panel-header">
-                <i class="bi bi-envelope-paper-fill"></i> Active Directives ({{ selected_aircraft['model'] }})
-            </div>
-            <div class="panel-body d-flex flex-column gap-3">
-                {% for doc in directives %}
-                    <div class="stat-card text-left {% if doc['doc_type'] == 'AD' %}border-start-danger{% else %}border-start-warning{% endif %}">
-                        <div class="d-flex justify-content-between mb-2">
-                            <div class="fw-bold fs-sm">{{ doc['ref_number'] }}</div>
-                            {% if doc['doc_type'] == 'AD' %}
-                                <span class="badge badge--danger">{{ doc['doc_type'] }}</span>
-                            {% else %}
-                                <span class="badge badge--warning">{{ doc['doc_type'] }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="text-secondary fs-sm mb-3">{{ doc['description'] }}</div>
-                        {% if doc['pdf_path'] %}
-                            <a href="/{{ doc['pdf_path'].replace('\\', '/') }}" target="_blank" class="btn btn--outline btn--sm w-100">
-                                <i class="bi bi-file-earmark-pdf-fill text-danger"></i> View Directive PDF
-                            </a>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <div class="text-center p-4">
-                        <i class="bi bi-check2-circle fs-sm text-success d-block mb-2"></i>
-                        <span class="text-success fw-bold">No open Directives for the {{ selected_aircraft['model'] }} fleet.</span>
-                    </div>
-                {% endfor %}
-            </div>
+<!-- ── TIER 4: Operational Focus — Telemetry & Fault Resolution ── -->
+<div class="grid grid--2col mb-4">
+
+    <!-- LEFT: Sensor Telemetry -->
+    <div class="glass-panel">
+        <div class="panel-header text-warning">
+            <i class="bi bi-activity"></i> Live Sensor Telemetry
         </div>
-        
+        <div class="table-responsive" style="max-height: 400px;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Sensor</th>
+                        <th class="text-right">Reading</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in telemetry %}
+                    <tr>
+                        <td class="fw-bold">{{ item['component_id'] }}</td>
+                        <td class="text-muted">{{ item['sensor_type'] }}</td>
+                        <td class="text-right fw-bold {% if item['reading_value'] > 900 %}text-danger{% else %}text-success{% endif %}">
+                            {{ item['reading_value'] }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- RIGHT COLUMN -->
+    <!-- RIGHT: Fault Resolution Workflow -->
     <div class="d-flex flex-column gap-4">
-        
-        <!-- System Status Header -->
-        {% if faults|length > 0 %}
-        <div class="alert-bar alert-bar--danger justify-content-center">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <div class="text-center">
-                <div class="fw-bold mb-1">AIRCRAFT ON GROUND (AOG)</div>
-                <span class="badge badge--danger">Flight Status: Grounded</span>
-            </div>
-        </div>
-        {% else %}
-        <div class="alert-bar alert-bar--success justify-content-center">
-            <i class="bi bi-shield-check"></i>
-            <div class="text-center">
-                <div class="fw-bold mb-1">AIRCRAFT AIRWORTHY</div>
-                <span class="badge badge--success">Flight Status: Cleared for Dispatch</span>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Faults Section -->
         {% for fault in faults %}
         <div class="glass-panel border-start-danger">
             <div class="panel-header justify-content-between text-danger">
                 <div><i class="bi bi-cone-striped me-2"></i> {{ fault['fault_type'] }}</div>
                 <span class="badge badge--danger">Loc: {{ fault['component_id'] }}</span>
             </div>
-            
-            <div class="panel-body bg-dark" style="background: rgba(0,0,0,0.3);">
+            <div class="panel-body" style="background: rgba(0,0,0,0.3);">
                 {% if fault.cbr_matches %}
                 <div class="mb-4">
                     <div class="d-flex align-items-center gap-2 mb-3">
@@ -156,20 +122,17 @@
                     </div>
                 </div>
                 {% endif %}
-                
                 <div class="stat-card border-start-success text-left mt-3">
                     <h6 class="text-success fw-bold mb-3 fs-sm"><i class="bi bi-hammer me-2"></i>Work Order & Resolution</h6>
                     <div class="stat-card text-left mb-3">
                         <div class="stat-label">Standard Reference</div>
                         <div class="fw-bold">{{ fault['amm_reference'] }}</div>
                     </div>
-                    
                     {% if selected_aircraft['amm_pdf_path'] %}
                         <a href="/{{ selected_aircraft['amm_pdf_path'].replace('\\', '/') }}" target="_blank" class="btn btn--success btn--sm w-100 fw-bold mb-4">
                             <i class="bi bi-journal-check"></i> Open AMM Master Document
                         </a>
                     {% endif %}
-                    
                     <div class="mt-4 pt-3" style="border-top: 1px solid var(--border-subtle);">
                         <h6 class="fs-sm mb-3 fw-bold"><i class="bi bi-shield-lock me-1"></i> Certificate of Release to Service (CRS)</h6>
                         <form action="/resolve_fault/{{ fault['fault_id'] }}" method="POST" class="d-flex gap-2">
@@ -188,43 +151,80 @@
         {% else %}
             {% if faults|length == 0 %}
             <div class="glass-panel text-center d-flex flex-column justify-content-center align-items-center" style="min-height: 250px;">
-                <i class="bi bi-cpu fs-sm text-success mb-3 opacity-75" style="font-size: 2rem;"></i>
-                <h5 class="fw-bold">Live Ontology Reasoner found 0 faults.</h5>
+                <i class="bi bi-cpu text-success mb-3 opacity-75" style="font-size: 2.5rem;"></i>
+                <h5 class="fw-bold">Ontology Reasoner: 0 Faults Detected</h5>
                 <p class="text-muted fs-sm m-0">All telemetry sensors are operating within optimal limits.</p>
             </div>
             {% endif %}
         {% endfor %}
-
-        <!-- Schedule Sync -->
-        <div class="glass-panel">
-            <div class="panel-header text-warning">
-                <i class="bi bi-calendar-event-fill"></i> Fleet Sync Schedule
-            </div>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <tbody>
-                        {% for event in schedule_sync %}
-                        <tr>
-                            <td class="fw-bold">{{ event['aircraft_id'].replace('Aircraft_', '') }}</td>
-                            <td>
-                                {% if event['event_type'] == 'Flight' %}
-                                    <span class="badge badge--info">Flight</span>
-                                {% else %}
-                                    <span class="badge badge--neutral">Maintenance</span>
-                                {% endif %}
-                                <span class="fs-sm ms-2 text-muted">{{ event['title'] }}</span>
-                            </td>
-                            <td class="text-right text-secondary fs-sm" style="font-variant-numeric: tabular-nums;">
-                                <i class="bi bi-clock me-1"></i>{{ event['start_time'][:16] }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
     </div>
+
+</div>
+
+<!-- ── TIER 5: Secondary Info — Directives & Schedule ─────────── -->
+<div class="grid grid--2col">
+
+    <!-- Active Directives -->
+    <div class="glass-panel">
+        <div class="panel-header">
+            <i class="bi bi-envelope-paper-fill"></i> Active Directives ({{ selected_aircraft['model'] }})
+        </div>
+        <div class="panel-body d-flex flex-column gap-3">
+            {% for doc in directives %}
+                <div class="stat-card text-left {% if doc['doc_type'] == 'AD' %}border-start-danger{% else %}border-start-warning{% endif %}">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="fw-bold fs-sm">{{ doc['ref_number'] }}</div>
+                        {% if doc['doc_type'] == 'AD' %}
+                            <span class="badge badge--danger">{{ doc['doc_type'] }}</span>
+                        {% else %}
+                            <span class="badge badge--warning">{{ doc['doc_type'] }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-secondary fs-sm mb-3">{{ doc['description'] }}</div>
+                    {% if doc['pdf_path'] %}
+                        <a href="/{{ doc['pdf_path'].replace('\\', '/') }}" target="_blank" class="btn btn--outline btn--sm w-100">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger"></i> View Directive PDF
+                        </a>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="text-center p-4">
+                    <i class="bi bi-check2-circle text-success d-block mb-2" style="font-size: 2rem;"></i>
+                    <span class="text-success fw-bold">No open Directives for the {{ selected_aircraft['model'] }} fleet.</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Fleet Sync Schedule -->
+    <div class="glass-panel">
+        <div class="panel-header text-warning">
+            <i class="bi bi-calendar-event-fill"></i> Fleet Sync Schedule
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <tbody>
+                    {% for event in schedule_sync %}
+                    <tr>
+                        <td class="fw-bold">{{ event['aircraft_id'].replace('Aircraft_', '') }}</td>
+                        <td>
+                            {% if event['event_type'] == 'Flight' %}
+                                <span class="badge badge--info">Flight</span>
+                            {% else %}
+                                <span class="badge badge--neutral">Maintenance</span>
+                            {% endif %}
+                            <span class="fs-sm ms-2 text-muted">{{ event['title'] }}</span>
+                        </td>
+                        <td class="text-right text-secondary fs-sm" style="font-variant-numeric: tabular-nums;">
+                            <i class="bi bi-clock me-1"></i>{{ event['start_time'][:16] }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
 <!-- ══════════════════════════════════════════════

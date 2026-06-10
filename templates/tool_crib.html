@@ -14,7 +14,7 @@
     </div>
     <div class="panel-body">
         <form action="/add_tool" method="POST" class="m-0">
-            <div class="grid grid--4col align-items-end">
+            <div class="grid grid--5col align-items-end">
                 <div class="form-group mb-0">
                     <label class="form-label">Tool ID</label>
                     <input type="text" name="tool_id" class="form-input" placeholder="e.g., TL-900" required>
@@ -107,7 +107,7 @@
                             
                             {% if tool['status'] == 'Available' %}
                                 <form action="{{ url_for('tool_crib.checkout_tool', tool_id=tool['tool_id']) }}" method="POST" class="d-flex m-0 gap-2">
-                                    <select name="engineer_id" class="form-select" style="padding: 0.25rem 0.5rem;" required>
+                                    <select name="engineer_id" class="form-select form-select--sm" style="min-width: 120px;" required>
                                         <option value="" disabled selected>Engineer...</option>
                                         {% for eng in engineers %}
                                             <option value="{{ eng.emp_id }}">{{ eng.full_name }}</option>
@@ -123,8 +123,8 @@
 
                             {% if tool['calibration_due'] != 'N/A' %}
                             <form action="/update_tool/{{ tool['tool_id'] }}" method="POST" class="d-flex m-0 gap-2">
-                                <input type="date" name="new_cal_date" class="form-input" style="padding: 0.25rem; width: 130px;" required>
-                                <button type="submit" class="btn btn--info btn--sm fw-bold border-start-info" style="color: var(--accent-cyan); background: transparent; border: 1px solid var(--accent-cyan);">Recalibrate</button>
+                                <input type="date" name="new_cal_date" class="form-input form-input--sm" style="width: 130px;" required>
+                                <button type="submit" class="btn btn--outline btn--sm text-info fw-bold border-info">Recalibrate</button>
                             </form>
                             {% endif %}
                             
