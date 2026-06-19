@@ -98,6 +98,7 @@ a:hover {
     align-items: center;
     gap: 16px;
     border-bottom: 1px solid var(--border-subtle);
+    position: relative;
 }
 
 .sidebar-logo {
@@ -150,6 +151,32 @@ a:hover {
     padding: 24px 0;
     justify-content: center;
     gap: 0;
+}
+
+.sidebar-toggle {
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-panel-solid);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    z-index: 101;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.sidebar-toggle:hover {
+    color: var(--accent-cyan);
+    background: var(--bg-panel-hover);
+    border-color: var(--accent-cyan-glow);
 }
 
 .sidebar-nav {
@@ -207,22 +234,6 @@ a:hover {
     backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-subtle);
     z-index: 10;
-}
-
-.nav-toggle {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 1.5rem;
-    cursor: pointer;
-    transition: color var(--transition-fast), background var(--transition-fast);
-    padding: 8px;
-    border-radius: 8px;
-}
-
-.nav-toggle:hover {
-    color: var(--text-primary);
-    background: var(--bg-panel);
 }
 
 .system-status {
