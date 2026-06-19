@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- ── Page Header ─────────────────────────────────────────────── -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Sensor Telemetry <span class="text-muted fw-bold">| Digital Twin History</span></h1>
+        <div class="page-subtitle"><i class="bi bi-geo-alt-fill me-1 text-info"></i> Hangar 1 Central Monitoring</div>
+    </div>
+    <div class="d-flex align-items-end gap-3">
+        <div>
+            <label class="stat-label mb-1">Select Aircraft</label>
+            <select id="tailSelector" class="form-select" onchange="window.location.href='?tail=' + this.value">
+                {% for plane in fleet %}
+                <option value="{{ plane['aircraft_id'] }}" {% if selected_aircraft and plane['aircraft_id'] == selected_aircraft['aircraft_id'] %}selected{% endif %}>
+                    {{ plane['registration'] }} — {{ plane['model'] }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- ── Telemetry Table ─────────────────────────────────────────── -->
+{% if selected_aircraft %}
+<div class="glass-panel mb-4">
+    <div class="panel-header text-warning">
+        <i class="bi bi-activity"></i> Sensor Telemetry History — {{ selected_aircraft['registration'] }}
+    </div>
+    <div class="panel-body" style="padding: 0;">
+        {% if telemetry|length > 0 %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Component</th>
+                        <th>Component Type</th>
+                        <th>Sensor</th>
+                        <th class="text-right">Reading</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in telemetry %}
+                    <tr>
+                        <td class="text-muted">{{ item['recorded_at'] }}</td>
+                        <td class="fw-bold">{{ item['component_id'] }}</td>
+                        <td class="text-muted">{{ item['component_type'] or '—' }}</td>
+                        <td>{{ item['sensor_type'] }}</td>
+                        <td class="text-right fw-bold">{{ item['reading_value'] }}</td>
+                        <td class="text-center">
+                            {% if item['sensor_type'] == 'Thermocouple' and item['reading_value'] > 900 %}
+                                <span class="badge badge--danger">Over Temp</span>
+                            {% elif item['sensor_type'] == 'Vibration Sensor' and item['reading_value'] > 4.5 %}
+                                <span class="badge badge--danger">Vibration</span>
+                            {% elif item['sensor_type'] == 'Pressure Sensor' and item['reading_value'] < 20 %}
+                                <span class="badge badge--danger">Low Pressure</span>
+                            {% else %}
+                                <span class="badge badge--success">Nominal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-activity text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
+            <h5 class="fw-bold text-muted">No telemetry data found for this aircraft</h5>
+            <p class="text-muted fs-sm m-0">Sensor readings will appear here once the reasoner has analyzed this airframe.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="glass-panel text-center py-5">
+    <i class="bi bi-airplane text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
+    <h5 class="fw-bold text-muted">No aircraft available</h5>
+    <p class="text-muted fs-sm m-0">Register an aircraft in the CAMO Workspace to begin tracking telemetry.</p>
+</div>
+{% endif %}
+
+{% endblock %}

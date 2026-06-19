@@ -28,7 +28,7 @@ def dashboard():
         
         if not selected_aircraft:
             return render_template('dashboard.html', fleet=fleet, faults=[], 
-                                   telemetry=[], directives=[], schedule_sync=[])
+                                   directives=[], schedule_sync=[])
         
         current_model = selected_aircraft['model']
         
@@ -57,15 +57,6 @@ def dashboard():
             fault_dict['cbr_matches'] = similar_past_repairs
             faults_with_cbr.append(fault_dict)
         
-        # Get latest telemetry
-        telemetry = conn.execute('''
-            SELECT t.sensor_type, t.reading_value, t.recorded_at, c.component_id 
-            FROM SensorTelemetry t 
-            JOIN Components c ON t.component_id = c.component_id 
-            WHERE c.aircraft_id = ? 
-            ORDER BY t.recorded_at DESC LIMIT 10
-        ''', (selected_tail,)).fetchall()
-        
         # Get scheduled events
         schedule_sync = conn.execute(
             'SELECT * FROM Schedule ORDER BY start_time ASC LIMIT 6'
@@ -86,7 +77,6 @@ def dashboard():
         fleet=fleet,
         selected_aircraft=selected_aircraft,
         faults=faults_with_cbr,
-        telemetry=telemetry,
         directives=directives,
         schedule_sync=schedule_sync,
         chart_labels=json.dumps(chart_labels),

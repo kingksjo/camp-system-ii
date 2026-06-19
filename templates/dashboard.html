@@ -62,39 +62,8 @@
     </div>
 </div>
 
-<!-- ── TIER 4: Operational Focus — Telemetry & Fault Resolution ── -->
-<div class="grid grid--2col mb-4">
-
-    <!-- LEFT: Sensor Telemetry -->
-    <div class="glass-panel">
-        <div class="panel-header text-warning">
-            <i class="bi bi-activity"></i> Live Sensor Telemetry
-        </div>
-        <div class="table-responsive" style="max-height: 400px;">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Component</th>
-                        <th>Sensor</th>
-                        <th class="text-right">Reading</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in telemetry %}
-                    <tr>
-                        <td class="fw-bold">{{ item['component_id'] }}</td>
-                        <td class="text-muted">{{ item['sensor_type'] }}</td>
-                        <td class="text-right fw-bold {% if item['reading_value'] > 900 %}text-danger{% else %}text-success{% endif %}">
-                            {{ item['reading_value'] }}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- RIGHT: Fault Resolution Workflow -->
+<!-- ── TIER 4: Operational Focus — Fault Resolution ── -->
+<div class="mb-4">
     <div class="d-flex flex-column gap-4">
         {% for fault in faults %}
         <div class="glass-panel border-start-danger">
