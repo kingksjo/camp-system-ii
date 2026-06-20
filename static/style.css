@@ -683,3 +683,123 @@ a:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--accent-cyan);
 }
+
+/* ── Telemetry Gauge Styles ─────────────────────────────────────── */
+
+.gauge-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem 1rem;
+    transition: box-shadow var(--transition-smooth);
+}
+
+.gauge-card--fault {
+    box-shadow: var(--status-danger-glow);
+    border: 1px solid var(--status-danger-border);
+}
+
+.gauge-wrap {
+    width: 100%;
+    max-width: 200px;
+    display: flex;
+    justify-content: center;
+}
+
+.gauge-svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.gauge-bg-arc {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 8;
+    stroke-linecap: round;
+}
+
+.gauge-fg-arc {
+    fill: none;
+    stroke: var(--accent-cyan);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke 0.4s ease, d 0.4s ease;
+}
+
+.gauge-card--fault .gauge-fg-arc {
+    stroke: var(--status-danger);
+}
+
+.gauge-needle {
+    stroke: var(--text-primary);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    transition: x2 0.4s cubic-bezier(0.4, 0, 0.2, 1), y2 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gauge-card--fault .gauge-needle {
+    stroke: var(--status-danger);
+}
+
+.gauge-hub {
+    fill: var(--text-primary);
+    transition: fill 0.4s ease;
+}
+
+.gauge-card--fault .gauge-hub {
+    fill: var(--status-danger);
+}
+
+.gauge-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 0.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.gauge-unit {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.gauge-status {
+    margin-top: 0.5rem;
+}
+
+/* ── Live Pulse Dot ──────────────────────────────────────────────── */
+
+.live-pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-success);
+    margin-left: 0.5rem;
+    animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+/* ── Countdown Progress Bar ──────────────────────────────────────── */
+
+.countdown-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.countdown-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--status-warning), var(--accent-cyan));
+    border-radius: 3px;
+    width: 100%;
+    transition: width 1s linear;
+}

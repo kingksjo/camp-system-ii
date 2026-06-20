@@ -3,7 +3,7 @@
 <!-- ── Page Header ─────────────────────────────────────────────── -->
 <div class="page-header">
     <div>
-        <h1 class="page-title">Sensor Telemetry <span class="text-muted fw-bold">| Digital Twin History</span></h1>
+        <h1 class="page-title">Sensor Telemetry <span class="text-muted fw-bold">| Live Digital Twin Feed</span></h1>
         <div class="page-subtitle"><i class="bi bi-geo-alt-fill me-1 text-info"></i> Hangar 1 Central Monitoring</div>
     </div>
     <div class="d-flex align-items-end gap-3">
@@ -20,15 +20,135 @@
     </div>
 </div>
 
-<!-- ── Telemetry Table ─────────────────────────────────────────── -->
 {% if selected_aircraft %}
+
+<!-- ── Live Telemetry Controls ─────────────────────────────────── -->
 <div class="glass-panel mb-4">
-    <div class="panel-header text-warning">
-        <i class="bi bi-activity"></i> Sensor Telemetry History — {{ selected_aircraft['registration'] }}
+    <div class="panel-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid var(--border-subtle);">
+        <div class="text-warning">
+            <i class="bi bi-broadcast"></i> Live Sensor Feed — {{ selected_aircraft['registration'] }}
+            <span id="livePulse" class="live-pulse-dot" style="display:none;"></span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button id="pollToggleBtn" class="btn btn--info btn--sm fw-bold">
+                <i class="bi bi-play-fill"></i> Start Feed
+            </button>
+            <select id="faultSelector" class="form-select form-select-sm" style="width: auto;">
+                <option value="">— Inject Fault —</option>
+                <option value="overheat">Engine Overheat</option>
+                <option value="vibration">Vibration Imbalance</option>
+                <option value="pressure">Fuel Pressure Loss</option>
+                <option value="clear">Clear All Faults</option>
+            </select>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div id="faultBanner" class="alert-bar" style="display:none; margin-bottom: 1rem;">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span id="faultBannerText"></span>
+        </div>
+
+        <!-- ── Next Reading Countdown ─────────────────────────────── -->
+        <div id="countdownWrap" style="display:none; margin-bottom: 1.25rem;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted fs-sm fw-bold"><i class="bi bi-clock-history me-1"></i>Next sensor reading in</span>
+                <span id="countdownText" class="fs-sm fw-bold text-warning">5:00</span>
+            </div>
+            <div class="countdown-track">
+                <div id="countdownBar" class="countdown-fill"></div>
+            </div>
+        </div>
+
+        <!-- ── Gauge Cards ──────────────────────────────────────── -->
+        <div class="grid grid--3col mb-4">
+            <!-- Thermocouple Gauge -->
+            <div class="stat-card gauge-card" id="gauge-Thermocouple">
+                <div class="stat-label text-warning mb-2"><i class="bi bi-thermometer-half"></i> Thermocouple</div>
+                <div class="gauge-wrap">
+                    <svg class="gauge-svg" viewBox="0 0 200 120">
+                        <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <path class="gauge-fg-arc" id="gauge-arc-Thermocouple" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <line class="gauge-needle" id="gauge-needle-Thermocouple" x1="100" y1="100" x2="100" y2="30" />
+                        <circle class="gauge-hub" cx="100" cy="100" r="6" />
+                    </svg>
+                </div>
+                <div class="gauge-value" id="gauge-value-Thermocouple">— <span class="gauge-unit">°C</span></div>
+                <div class="gauge-status" id="gauge-status-Thermocouple">
+                    <span class="badge badge--neutral">Standby</span>
+                </div>
+            </div>
+
+            <!-- Vibration Gauge -->
+            <div class="stat-card gauge-card" id="gauge-Vibration_Sensor">
+                <div class="stat-label text-info mb-2"><i class="bi bi-graph-up"></i> Vibration Sensor</div>
+                <div class="gauge-wrap">
+                    <svg class="gauge-svg" viewBox="0 0 200 120">
+                        <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <path class="gauge-fg-arc" id="gauge-arc-Vibration_Sensor" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <line class="gauge-needle" id="gauge-needle-Vibration_Sensor" x1="100" y1="100" x2="100" y2="30" />
+                        <circle class="gauge-hub" cx="100" cy="100" r="6" />
+                    </svg>
+                </div>
+                <div class="gauge-value" id="gauge-value-Vibration_Sensor">— <span class="gauge-unit">g</span></div>
+                <div class="gauge-status" id="gauge-status-Vibration_Sensor">
+                    <span class="badge badge--neutral">Standby</span>
+                </div>
+            </div>
+
+            <!-- Pressure Gauge -->
+            <div class="stat-card gauge-card" id="gauge-Pressure_Sensor">
+                <div class="stat-label" style="color: var(--accent-blue);"><i class="bi bi-droplet-half"></i> Pressure Sensor</div>
+                <div class="gauge-wrap">
+                    <svg class="gauge-svg" viewBox="0 0 200 120">
+                        <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <path class="gauge-fg-arc" id="gauge-arc-Pressure_Sensor" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <line class="gauge-needle" id="gauge-needle-Pressure_Sensor" x1="100" y1="100" x2="100" y2="30" />
+                        <circle class="gauge-hub" cx="100" cy="100" r="6" />
+                    </svg>
+                </div>
+                <div class="gauge-value" id="gauge-value-Pressure_Sensor">— <span class="gauge-unit">PSI</span></div>
+                <div class="gauge-status" id="gauge-status-Pressure_Sensor">
+                    <span class="badge badge--neutral">Standby</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Live Event Log ────────────────────────────────────── -->
+        <div class="panel-header" style="border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 0.75rem 1.5rem;">
+            <i class="bi bi-list-ol text-muted"></i> <span class="text-muted fw-bold fs-sm">Live Event Log</span>
+        </div>
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Component</th>
+                        <th>Sensor</th>
+                        <th class="text-right">Reading</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="liveLogBody">
+                    <tr><td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-arrow-up-circle text-muted me-2"></i>Start the live feed to see real-time sensor readings
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Historical Telemetry Table ──────────────────────────────── -->
+<div class="glass-panel mb-4">
+    <div class="panel-header d-flex justify-content-between align-items-center text-warning">
+        <div><i class="bi bi-archive"></i> Telemetry History — {{ selected_aircraft['registration'] }} <span class="text-muted fs-sm ms-2">({{ total_count }} total readings)</span></div>
+        <button id="refreshHistoryBtn" class="btn btn--info btn--sm fw-bold">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
     </div>
     <div class="panel-body" style="padding: 0;">
-        {% if telemetry|length > 0 %}
-        <div class="table-responsive">
+        <div id="historyTableWrap" class="table-responsive">
+            {% if telemetry|length > 0 %}
             <table class="data-table">
                 <thead>
                     <tr>
@@ -40,7 +160,7 @@
                         <th class="text-center">Status</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="historyTableBody">
                     {% for item in telemetry %}
                     <tr>
                         <td class="text-muted">{{ item['recorded_at'] }}</td>
@@ -63,16 +183,363 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div id="historyEmpty" class="text-center py-5">
+                <i class="bi bi-activity text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                <h5 class="fw-bold text-muted">No historical telemetry data found</h5>
+                <p class="text-muted fs-sm m-0">Start the live feed above to begin generating sensor readings.</p>
+            </div>
+            {% endif %}
         </div>
-        {% else %}
-        <div class="text-center py-5">
-            <i class="bi bi-activity text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
-            <h5 class="fw-bold text-muted">No telemetry data found for this aircraft</h5>
-            <p class="text-muted fs-sm m-0">Sensor readings will appear here once the reasoner has analyzed this airframe.</p>
+        <div id="historyPagination" class="d-flex justify-content-between align-items-center px-3 py-2" style="border-top: 1px solid var(--border-subtle);">
+            <span id="historyPageInfo" class="text-muted fs-sm">Page 1 of 1</span>
+            <div class="d-flex gap-2">
+                <button id="historyPrevBtn" class="btn btn--sm btn--info fw-bold" disabled>&laquo; Prev</button>
+                <button id="historyNextBtn" class="btn btn--sm btn--info fw-bold" disabled>Next &raquo;</button>
+            </div>
         </div>
-        {% endif %}
     </div>
 </div>
+
+<!-- ── JavaScript for Live Polling & Gauges ─────────────────────── -->
+<script>
+(function() {
+    const aircraftId = '{{ selected_aircraft["aircraft_id"] }}';
+    const pollBtn = document.getElementById('pollToggleBtn');
+    const faultSelector = document.getElementById('faultSelector');
+    const livePulse = document.getElementById('livePulse');
+    const liveLogBody = document.getElementById('liveLogBody');
+    const faultBanner = document.getElementById('faultBanner');
+    const faultBannerText = document.getElementById('faultBannerText');
+
+    let polling = false;
+    let pollTimer = null;
+    let countdownTimer = null;
+    const POLL_INTERVAL = 300000; // 5 minutes
+    const MAX_LOG_ROWS = 20;
+
+    // Sensor metadata (must match backend _SENSOR_PROFILES)
+    const SENSORS = {
+        'Thermocouple': { unit: '°C', min: 0, max: 1200, threshold: 900, faultLabel: 'Over Temp', lowerFault: false },
+        'Vibration Sensor': { unit: 'g', min: 0, max: 8, threshold: 4.5, faultLabel: 'Vibration', lowerFault: false },
+        'Pressure Sensor': { unit: 'PSI', min: 0, max: 80, threshold: 20, faultLabel: 'Low Pressure', lowerFault: true },
+    };
+
+    function sensorKey(sensorType) {
+        return sensorType.replace(/ /g, '_');
+    }
+
+    function polarToCartesian(cx, cy, r, angleDeg) {
+        const rad = (angleDeg - 180) * Math.PI / 180;
+        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+
+    function describeArc(cx, cy, r, startAngle, endAngle) {
+        const start = polarToCartesian(cx, cy, r, endAngle);
+        const end = polarToCartesian(cx, cy, r, startAngle);
+        const largeArc = endAngle - startAngle <= 180 ? '0' : '1';
+        return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+    }
+
+    function updateGauge(sensorType, value) {
+        const key = sensorKey(sensorType);
+        const meta = SENSORS[sensorType];
+        const pct = Math.max(0, Math.min(1, (value - meta.min) / (meta.max - meta.min)));
+        const angle = pct * 180; // 0 to 180 degrees
+        const arcEl = document.getElementById('gauge-arc-' + key);
+        const needleEl = document.getElementById('gauge-needle-' + key);
+        const valueEl = document.getElementById('gauge-value-' + key);
+        const statusEl = document.getElementById('gauge-status-' + key);
+
+        // Update arc
+        if (arcEl) {
+            const arcPath = describeArc(100, 100, 80, 0, angle);
+            arcEl.setAttribute('d', arcPath);
+        }
+
+        // Update needle
+        if (needleEl) {
+            const tip = polarToCartesian(100, 100, 70, angle);
+            needleEl.setAttribute('x2', tip.x);
+            needleEl.setAttribute('y2', tip.y);
+        }
+
+        // Update value text
+        if (valueEl) {
+            valueEl.innerHTML = value.toFixed(2) + ' <span class="gauge-unit">' + meta.unit + '</span>';
+        }
+
+        // Update status
+        if (statusEl) {
+            const isFault = meta.lowerFault ? value < meta.threshold : value > meta.threshold;
+            const card = document.getElementById('gauge-' + key);
+            if (isFault) {
+                statusEl.innerHTML = '<span class="badge badge--danger">' + meta.faultLabel + '</span>';
+                if (card) card.classList.add('gauge-card--fault');
+            } else {
+                statusEl.innerHTML = '<span class="badge badge--success">Nominal</span>';
+                if (card) card.classList.remove('gauge-card--fault');
+            }
+        }
+    }
+
+    function addLogRow(reading) {
+        // Clear placeholder
+        if (liveLogBody.querySelector('td[colspan]')) {
+            liveLogBody.innerHTML = '';
+        }
+
+        const meta = SENSORS[reading.sensor_type];
+        const isFault = reading.status === 'fault';
+        const now = new Date().toLocaleTimeString('en-GB', { hour12: false });
+
+        const row = document.createElement('tr');
+        row.style.opacity = '0';
+        row.style.transition = 'opacity 0.4s ease';
+        row.innerHTML = `
+            <td class="text-muted">${now}</td>
+            <td class="fw-bold">${reading.component_id}</td>
+            <td>${reading.sensor_type}</td>
+            <td class="text-right fw-bold ${isFault ? 'text-danger' : ''}">${reading.reading_value.toFixed(2)} ${meta.unit}</td>
+            <td class="text-center">
+                ${isFault
+                    ? '<span class="badge badge--danger">' + reading.fault_label + '</span>'
+                    : '<span class="badge badge--success">Nominal</span>'}
+            </td>
+        `;
+        liveLogBody.insertBefore(row, liveLogBody.firstChild);
+
+        // Fade in
+        requestAnimationFrame(() => { row.style.opacity = '1'; });
+
+        // Trim old rows
+        while (liveLogBody.children.length > MAX_LOG_ROWS) {
+            const last = liveLogBody.lastElementChild;
+            last.style.opacity = '0';
+            setTimeout(() => last.remove(), 400);
+            break;
+        }
+    }
+
+    function showFaultBanner(activeFaults) {
+        if (activeFaults && activeFaults.length > 0) {
+            const labels = {
+                'overheat': 'Engine Overheat (>900°C)',
+                'vibration': 'Vibration Imbalance (>4.5g)',
+                'pressure': 'Fuel Pressure Loss (<20 PSI)',
+            };
+            const text = activeFaults.map(f => labels[f] || f).join(' | ');
+            faultBannerText.textContent = '⚠ ACTIVE FAULT INJECTION: ' + text;
+            faultBanner.style.display = 'flex';
+        } else {
+            faultBanner.style.display = 'none';
+        }
+    }
+
+    async function poll() {
+        try {
+            const resp = await fetch('/api/telemetry/' + encodeURIComponent(aircraftId) + '/poll');
+            if (!resp.ok) throw new Error('Poll failed: ' + resp.status);
+            const data = await resp.json();
+
+            // Update gauges — take the first reading per sensor type
+            const seen = new Set();
+            for (const r of data.readings) {
+                if (!seen.has(r.sensor_type)) {
+                    seen.add(r.sensor_type);
+                    updateGauge(r.sensor_type, r.reading_value);
+                }
+                addLogRow(r);
+            }
+
+            showFaultBanner(data.active_faults);
+        } catch (err) {
+            console.error('Telemetry poll error:', err);
+        }
+    }
+
+    function startPolling() {
+        polling = true;
+        pollBtn.innerHTML = '<i class="bi bi-stop-fill"></i> Stop Feed';
+        pollBtn.classList.remove('btn--info');
+        pollBtn.classList.add('btn--danger');
+        livePulse.style.display = 'inline-block';
+        document.getElementById('countdownWrap').style.display = 'block';
+        poll();
+        startCountdown();
+        pollTimer = setInterval(poll, POLL_INTERVAL);
+    }
+
+    function stopPolling() {
+        polling = false;
+        pollBtn.innerHTML = '<i class="bi bi-play-fill"></i> Start Feed';
+        pollBtn.classList.remove('btn--danger');
+        pollBtn.classList.add('btn--info');
+        livePulse.style.display = 'none';
+        document.getElementById('countdownWrap').style.display = 'none';
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        stopCountdown();
+    }
+
+    // ── Countdown Progress Bar ────────────────────────────────────
+    const countdownBar = document.getElementById('countdownBar');
+    const countdownText = document.getElementById('countdownText');
+    let countdownStart = 0;
+
+    function startCountdown() {
+        stopCountdown();
+        countdownStart = Date.now();
+        updateCountdown();
+        countdownTimer = setInterval(updateCountdown, 1000);
+    }
+
+    function stopCountdown() {
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    }
+
+    function updateCountdown() {
+        const elapsed = Date.now() - countdownStart;
+        const remaining = Math.max(0, POLL_INTERVAL - elapsed);
+        const pct = (remaining / POLL_INTERVAL) * 100;
+        countdownBar.style.width = pct + '%';
+
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        countdownText.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+
+        if (remaining <= 0) {
+            stopCountdown();
+            // Poll fires via setInterval, but reset countdown immediately
+            countdownStart = Date.now();
+            updateCountdown();
+            countdownTimer = setInterval(updateCountdown, 1000);
+        }
+    }
+
+    pollBtn.addEventListener('click', function() {
+        if (polling) stopPolling(); else startPolling();
+    });
+
+    const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+    const historyPrevBtn = document.getElementById('historyPrevBtn');
+    const historyNextBtn = document.getElementById('historyNextBtn');
+    const historyPageInfo = document.getElementById('historyPageInfo');
+
+    let historyPage = 1;
+    const HISTORY_PER_PAGE = 15;
+
+    async function refreshHistory() {
+        try {
+            const resp = await fetch('/api/telemetry/' + encodeURIComponent(aircraftId) + '/history?page=' + historyPage + '&per_page=' + HISTORY_PER_PAGE);
+            if (!resp.ok) throw new Error('History fetch failed: ' + resp.status);
+            const data = await resp.json();
+
+            const wrap = document.getElementById('historyTableWrap');
+            const pagination = document.getElementById('historyPagination');
+
+            if (data.total === 0) {
+                wrap.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-activity text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                        <h5 class="fw-bold text-muted">No historical telemetry data found</h5>
+                        <p class="text-muted fs-sm m-0">Start the live feed above to begin generating sensor readings.</p>
+                    </div>`;
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+
+            let rowsHtml = '';
+            for (const r of data.history) {
+                const badge = r.status === 'fault'
+                    ? '<span class="badge badge--danger">' + r.fault_label + '</span>'
+                    : '<span class="badge badge--success">Nominal</span>';
+                const valueClass = r.status === 'fault' ? 'text-right fw-bold text-danger' : 'text-right fw-bold';
+                rowsHtml += `
+                    <tr>
+                        <td class="text-muted">${r.recorded_at}</td>
+                        <td class="fw-bold">${r.component_id}</td>
+                        <td class="text-muted">${r.component_type}</td>
+                        <td>${r.sensor_type}</td>
+                        <td class="${valueClass}">${r.reading_value}</td>
+                        <td class="text-center">${badge}</td>
+                    </tr>`;
+            }
+
+            wrap.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Component</th>
+                            <th>Component Type</th>
+                            <th>Sensor</th>
+                            <th class="text-right">Reading</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>`;
+
+            // Update pagination controls
+            historyPageInfo.textContent = 'Page ' + data.page + ' of ' + data.total_pages + ' (' + data.total + ' readings)';
+            historyPrevBtn.disabled = data.page <= 1;
+            historyNextBtn.disabled = data.page >= data.total_pages;
+        } catch (err) {
+            console.error('History refresh error:', err);
+        }
+    }
+
+    if (refreshHistoryBtn) {
+        refreshHistoryBtn.addEventListener('click', function() { historyPage = 1; refreshHistory(); });
+    }
+    if (historyPrevBtn) {
+        historyPrevBtn.addEventListener('click', function() {
+            if (historyPage > 1) { historyPage--; refreshHistory(); }
+        });
+    }
+    if (historyNextBtn) {
+        historyNextBtn.addEventListener('click', function() {
+            historyPage++;
+            refreshHistory();
+        });
+    }
+
+    faultSelector.addEventListener('change', async function() {
+        const val = this.value;
+        if (!val) return;
+        this.value = '';
+
+        if (val === 'clear') {
+            try {
+                const resp = await fetch('/api/telemetry/' + encodeURIComponent(aircraftId) + '/clear_fault', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await resp.json();
+                showFaultBanner(data.active_faults);
+            } catch (err) {
+                console.error('Clear fault error:', err);
+            }
+        } else {
+            try {
+                const resp = await fetch('/api/telemetry/' + encodeURIComponent(aircraftId) + '/inject_fault', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fault_type: val })
+                });
+                const data = await resp.json();
+                showFaultBanner(data.active_faults);
+            } catch (err) {
+                console.error('Inject fault error:', err);
+            }
+        }
+    });
+})();
+</script>
+
 {% else %}
 <div class="glass-panel text-center py-5">
     <i class="bi bi-airplane text-muted mb-3" style="font-size: 2.5rem; opacity: 0.5;"></i>
