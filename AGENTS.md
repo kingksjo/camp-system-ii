@@ -6,7 +6,7 @@ C.O.R.E. CAMP is a sophisticated Aircraft Maintenance Management (AMM) system th
 ### Core Technologies
 - **Backend:** Python (Flask)
 - **Ontology Engine:** [Owlready2](https://owlready2.readthedocs.io/) with the Pellet reasoner.
-- **Database:** SQLite (with self-healing schema migrations in `app.py`).
+- **Database:** SQLite (with self-healing schema migrations in `app/database.py`).
 - **AI/ML:**
   - **Case-Based Reasoning (CBR):** Semantic search for historical maintenance cases using `scikit-learn` (TF-IDF + Cosine Similarity).
   - **Ontology-Based Reasoning:** Real-time fault detection using SWRL rules and the Pellet reasoner.
@@ -32,7 +32,7 @@ pip install flask owlready2 scikit-learn
 ### Running the Application
 To start the Flask server:
 ```bash
-python app.py
+python run.py
 ```
 *Note: The application is configured to run on `http://127.0.0.1:500` by default (though logs may mention port 5000).*
 
@@ -50,10 +50,10 @@ The `archives/` directory contains several utility scripts for system initializa
 - Always run `rebuild_rules.py` after modifying rule definitions to persist changes to the `.owl` files.
 
 ### Database Management
-- The application uses a "Self-Healing" database pattern in `app.py`'s `get_db_connection()`. Schema additions (e.g., `ALTER TABLE`) are performed on connection to ensure the database remains up-to-date with new features.
+- The application uses a "Self-Healing" database pattern in `app/database.py`'s `get_db_connection()`. Schema additions (e.g., `ALTER TABLE`) are performed on connection to ensure the database remains up-to-date with new features.
 
 ### Semantic Search (CBR)
-- The `retrieve_similar_cases` function in `app.py` handles semantic matching. It compares current fault descriptions against the `MaintenanceHistory` table using NLP techniques.
+- The `retrieve_similar_cases` function in `app/cbr_engine.py` handles semantic matching. It compares current fault descriptions against the `MaintenanceHistory` table using NLP techniques.
 
 ### Digital Signatures
 - Maintenance tasks require an engineer's ID for sign-off. The system captures the engineer's name, license number, and stamp to create a digital signature in the logs.

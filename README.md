@@ -61,7 +61,7 @@ pip install -r requirements.txt
 
 Start the Flask development server:
 ```bash
-python app.py
+python run.py
 ```
 
 The application will be available at `http://127.0.0.1:5000`
@@ -70,7 +70,8 @@ The application will be available at `http://127.0.0.1:5000`
 
 ```
 camp-system-ii/
-├── app.py                      # Main Flask application
+├── run.py                      # Main Flask application entry point
+├── app/                        # Application package (factory, routes, database, etc.)
 ├── camp.owl                    # Primary OWL ontology
 ├── camp_multi_ontology.owl     # Extended ontology for multi-aircraft scenarios
 ├── requirements.txt            # Python dependencies
@@ -101,7 +102,7 @@ camp-system-ii/
   ```
 
 ### Database Management
-- The application uses a "Self-Healing" database pattern in `app.py`
+- The application uses a "Self-Healing" database pattern in `app/database.py`
 - Schema additions (e.g., `ALTER TABLE`) are automatically performed on connection
 - Manual migrations can be run using `archives/update_db.py`
 
@@ -140,7 +141,7 @@ For production deployment, consider:
 
 **Database Errors:**
 - The application automatically handles schema migrations
-- If issues persist, review the logs in `app.py` for the self-healing mechanism
+- If issues persist, review the logs in `app/database.py` for the self-healing mechanism
 
 **Import Errors:**
 - Verify all dependencies are installed: `pip install -r requirements.txt`
