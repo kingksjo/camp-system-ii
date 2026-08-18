@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-diagram-3-fill text-primary me-2"></i> Work Order Documentation</h1>
+        <div class="page-subtitle">Integrated Maintenance Documentation Framework — Evidence Locker, Parts Traceability &amp; CRS, unified per Work Order</div>
+    </div>
+</div>
+
+<div class="glass-panel mb-4" style="border-left: 3px solid var(--accent-cyan);">
+    <div class="panel-body fs-sm text-secondary">
+        <i class="bi bi-info-circle text-info me-1"></i>
+        Every AI-detected fault is a <b>Work Order</b>. Opening one here activates its Evidence Locker and
+        Parts Traceability together, so removal/installation documentation is captured continuously during
+        maintenance rather than reconstructed afterward — and everything collected here automatically feeds
+        the Certificate of Release to Service.
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-list-check"></i> Work Orders</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Work Order</th>
+                    <th>Aircraft</th>
+                    <th>Standard Reference</th>
+                    <th>Fault / Discrepancy</th>
+                    <th>Detected</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for wo in work_orders %}
+                <tr>
+                    <td class="fw-bold font-monospace">{{ wo.work_order_number }}</td>
+                    <td><span class="badge badge--neutral">{{ wo.aircraft_reg }}</span></td>
+                    <td>{{ wo.amm_reference }}</td>
+                    <td>{{ wo.fault_type }}</td>
+                    <td class="text-muted fs-sm">{{ wo.detected_time }}</td>
+                    <td>
+                        {% if wo.resolved %}
+                        <span class="badge badge--success"><i class="bi bi-check-circle"></i> Released (CRS)</span>
+                        {% else %}
+                        <span class="badge badge--warning"><i class="bi bi-hourglass-split"></i> Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/work-order/{{ wo.fault_id }}" class="btn btn--outline btn--sm">
+                            <i class="bi bi-folder2-open"></i> Open
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted p-4">No work orders yet — they're created automatically whenever the AI reasoner detects a fault.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

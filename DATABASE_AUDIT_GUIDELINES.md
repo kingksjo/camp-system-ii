@@ -1,0 +1,536 @@
+# C.O.R.E. CAMP Database Audit Guidelines
+
+## Purpose
+
+This document records the database problems found in the current working tree and the live `camp_system.db` file. It explains:
+
+- how the problems were identified;
+- what each problem affects;
+- where the relevant code lives;
+- the recommended remediation order;
+- how to test each repair.
+
+This is an audit and remediation guide. No data repair was performed during the audit.
+
+## Audit Scope
+
+The audit covered:
+
+- `app/database.py` and `app/config.py`;
+- the authentication and company model in `app/auth.py`;
+- all core Flask routes under `app/routes/`;
+- extension modules under `app/camp_extensions/`;
+- document ingestion under `app/ingestion/`;
+- the legacy root-level `app.py`;
+- the live SQLite schema, foreign-key state, indexes, row counts, and referential-integrity checks.
+
+The current package application is started through `run.py`. The root `app.py` is a second, legacy application implementation and must not be treated as an equivalent entry point.
+
+## How The Findings Were Discovered
+
+The following read-only checks were used from the project root:
+
+```powershell
+sqlite3 camp_system.db ".tables"
+sqlite3 camp_system.db "select name, sql from sqlite_master where type='table' and name not like 'sqlite_%' order by name;"
+sqlite3 camp_system.db "PRAGMA foreign_keys; PRAGMA journal_mode; PRAGMA foreign_key_check;"
+sqlite3 camp_system.db "select name, tbl_name, sql from sqlite_master where type='index' and name not like 'sqlite_%';"
+```
+
+The application code was then traced for:
+
+- every `CREATE TABLE` and `ALTER TABLE`;
+- every `SELECT`, `INSERT`, `UPDATE`, and `DELETE` involving operational data;
+- every use of `company_id`;
+- background threads and database writes;
+- transaction boundaries and swallowed exceptions.
+
+## Evidence From The Current Database
+
+The live database currently reports:
+
+- `PRAGMA foreign_keys` is `0`.
+- SQLite is using `delete` journal mode, not WAL.
+- `PRAGMA foreign_key_check` reports 19 violations.
+- 18 `Faults` rows reference deleted component IDs.
+- 1 `Faults` row references a missing `SensorTelemetry` row.
+- 1 `Schedule` row references deleted aircraft `Aircraft_5N_NAF`.
+- There are no user-defined indexes.
+- The database contains 4 aircraft, 28 components, 25 faults, 8 schedules, 15 maintenance-history rows, and 12 CRS records.
+
+These checks demonstrate that the problems are not only theoretical. The current database already contains broken relationships.
+
+## Findings
+
+### DB-01: Company isolation is incomplete
+
+**Severity:** Critical
+
+Authentication stores a session company in `app/auth.py:242-267`, but most operational tables do not contain `company_id` and most queries do not join through an owned aircraft.
+
+Tables that currently have company ownership fields include:
+
+- `Aircraft`;
+- `Engineers`;
+- `Personnel`;
+- `MasterMEL`;
+- `ToolCrib`;
+- `Companies`, `Users`, and document-ingestion tables.
+
+Important operational tables without complete company scoping include:
+
+- `Components`;
+- `Faults`;
+- `SensorTelemetry`;
+- `Schedule`;
+- `MEL_Deferrals`;
+- `PilotReports`;
+- `MaintenanceHistory`;
+- `CRS_Records`;
+- `PartRecords`;
+- `DigitalEvidence`;
+- `EnvironmentalRiskLog`;
+- `CAMSISGroundingLog`;
+- `IoTToolReadings`.
+
+**Affected code:**
+
+- Global fleet reads: `app/routes/dashboard.py`, `workspace.py`, `calendar.py`, `mel.py`, `flight_log.py`, `due_list.py`, `personnel.py`, and `tool_crib.py`.
+- Global work orders: `app/camp_extensions/routes_imdf.py:26-64`.
+- Global evidence: `app/camp_extensions/digital_evidence.py:102-189` and `routes_evidence.py:23-51`.
+- Global parts: `app/camp_extensions/parts_traceability.py:51-77` and `routes_parts.py:21-57`.
+- Global schedule APIs: `app/camp_extensions/fullcalendar_schedule.py:49-140`.
+- Ingestion IDORs: `app/routes/ingestion.py:17-72` and `app/ingestion/commit.py:50-128`.
+
+**Effect:** An authenticated user can potentially read or mutate another company's records by supplying another company's aircraft ID, fault ID, schedule row ID, extraction ID, component ID, or part serial.
+
+**Recommended fix:** Choose one explicit product decision:
+
+1. implement real multi-company isolation; or
+2. remove the tenant-facing behavior until isolation is complete.
+
+If multi-company isolation is retained, derive ownership through `Aircraft.company_id` for every aircraft-linked table, add direct `company_id` to global/reference tables where needed, and centralize ownership checks in reusable database helpers.
+
+### DB-02: Foreign-key enforcement is disabled
+
+**Severity:** Critical
+
+Tables declare some foreign keys, but `app/database.py:10-21` never executes:
+
+```sql
+PRAGMA foreign_keys = ON;
+```
+
+**Effect:** SQLite permits rows referencing deleted or nonexistent aircraft, components, faults, and telemetry. The live `PRAGMA foreign_key_check` result already contains 19 violations.
+
+**Recommended fix:** Enable foreign keys on every connection, then repair existing violations before enforcing stricter constraints:
+
+```python
+conn.execute('PRAGMA foreign_keys = ON')
+```
+
+Do not enable this blindly in production before the repair migration has been tested against a copy of the database.
+
+### DB-03: Destructive component migration deletes operational history
+
+**Severity:** Critical
+
+`app/database.py:65-151` invokes `_revamp_components_and_sensors()` from every connection until `ComponentRevampMarker` exists. The migration deletes:
+
+- all `SensorTelemetry` rows;
+- all `Components` rows;
+- the test aircraft and selected dependent records.
+
+Fault records are intentionally retained, but their component references are not remapped. This explains the 18 orphaned faults in the live database.
+
+**Effect:** Historical telemetry and component identity are lost, while audit records remain linked to nonexistent components.
+
+**Recommended fix:**
+
+- Remove the destructive operation from request-time connection setup.
+- Back up the database before any repair.
+- Create an explicit, versioned migration.
+- Preserve old components and telemetry, or create a documented mapping from old component IDs to new IDs.
+- Only archive test data when it can be identified without ambiguity.
+- Validate foreign-key integrity after migration.
+
+### DB-04: Migrations are unversioned, repeated, and silently fail
+
+**Severity:** High
+
+Schema changes are attempted on every connection in `app/database.py:34-69`. Similar patterns exist in `app/auth.py`, `app/ingestion/schema.py`, `app/camp_extensions/ext_db.py`, and extension modules.
+
+Many migration blocks catch `OperationalError` or broad `Exception` and continue as though the only possible cause were an already-existing column.
+
+**Effect:** Real errors such as `database is locked`, malformed DDL, missing base tables, and disk failures are hidden. The application may continue against a partially migrated schema.
+
+**Recommended fix:** Add a migration table such as:
+
+```sql
+CREATE TABLE schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+Apply migrations once, in order, under a migration lock. Catch only the expected duplicate-column/table condition, and fail loudly for all other errors.
+
+### DB-05: The source schema and live schema have diverged
+
+**Severity:** High
+
+The root `app.py` contains a second database implementation and schema setup path. It creates different table definitions from the package application.
+
+A concrete example is `PilotReports`:
+
+- `app/database.py:185-191` creates `id`;
+- the live database has `report_id`;
+- `app/routes/fault_resolution.py` expects `report_id`;
+- legacy `app.py` has both `id` and `rowid` assumptions.
+
+`XAILogs` also has materially different columns between the legacy and current schemas.
+
+**Effect:** A fresh database can behave differently from the existing database. Running `python app.py` instead of `python run.py` can produce inconsistent routes and migrations against the same file.
+
+**Recommended fix:**
+
+- Retire or clearly isolate the root `app.py`.
+- Make `run.py` the only supported entry point.
+- Define each table once in the package migration system.
+- Add a fresh-database schema test and a current-database upgrade test.
+
+### DB-06: The relational model lacks important foreign keys
+
+**Severity:** High
+
+Several logical relationships are only represented by text or integer IDs without constraints:
+
+- `Schedule.aircraft_id -> Aircraft.aircraft_id`;
+- `MEL_Deferrals.aircraft_id -> Aircraft.aircraft_id`;
+- `MaintenanceHistory.aircraft_reg -> Aircraft.registration`;
+- `DigitalEvidence.fault_id -> Faults.fault_id`;
+- `DigitalEvidence.component_id -> Components.component_id`;
+- `PartRecords.component_id -> Components.component_id`;
+- `PartRecords.aircraft_id -> Aircraft.aircraft_id`;
+- `EnvironmentalRiskLog.aircraft_id -> Aircraft.aircraft_id`;
+- `CAMSISGroundingLog.component_id -> Components.component_id`;
+- `IoTToolReadings.component_id -> Components.component_id`.
+
+**Effect:** Deletion and update operations can leave orphaned records. Text-based registration references can become invalid if an aircraft registration changes.
+
+**Recommended fix:** Use stable primary-key references, add foreign keys with deliberate `ON DELETE` behavior, and migrate `MaintenanceHistory`/CRS from free-text registration references to `aircraft_id`.
+
+### DB-07: No indexes support normal application queries
+
+**Severity:** High
+
+The live database has no user-defined indexes. Frequent filters and sorts include:
+
+- `company_id`;
+- `aircraft_id`;
+- `component_id`;
+- `fault_id`;
+- `recorded_at`;
+- `status`;
+- `start_time`;
+- `source_type, source_id`.
+
+**Effect:** Dashboard, telemetry, history, schedule, ingestion, and reasoner queries will become increasingly slow as data grows.
+
+**Recommended fix:** Add indexes after reviewing query plans. Initial candidates include:
+
+```sql
+CREATE INDEX idx_components_aircraft ON Components(aircraft_id);
+CREATE INDEX idx_telemetry_component_time ON SensorTelemetry(component_id, recorded_at DESC);
+CREATE INDEX idx_faults_component_status ON Faults(component_id, resolved, fault_type);
+CREATE INDEX idx_schedule_aircraft_time ON Schedule(aircraft_id, start_time);
+CREATE INDEX idx_history_aircraft_date ON MaintenanceHistory(aircraft_reg, completion_date DESC);
+CREATE INDEX idx_documents_source ON MaintenanceDocuments(source_type, source_id);
+CREATE INDEX idx_ingestion_company_status ON IngestedDocuments(company_id, status);
+```
+
+Add company-leading indexes when company isolation is implemented.
+
+### DB-08: No uniqueness or idempotency protections exist for key operations
+
+**Severity:** High
+
+The application uses read-then-write logic without database constraints in several places:
+
+- open faults: `app/ontology_reasoner.py:366-376`;
+- ingestion parsing: `app/ingestion/runner.py:59-73`;
+- ingestion approval: `app/ingestion/commit.py:50-109`;
+- maintenance document generation: `app/camp_extensions/maintenance_documents.py:190-218`;
+- evidence chain position: `app/camp_extensions/digital_evidence.py:135-153`.
+
+**Effect:** Double-clicks, retries, concurrent workers, and repeated diagnostics can create duplicate faults, pending rows, documents, or chain positions.
+
+**Recommended fix:** Add appropriate unique constraints and use atomic conditional updates. Examples:
+
+- unique open fault key, where supported by the business model;
+- unique `(source_type, source_id)` for maintenance documents;
+- unique or versioned extraction candidates;
+- atomic `UPDATE ... WHERE status = 'Pending'` before approval;
+- transactionally allocate evidence chain positions.
+
+### DB-09: Background writers race with user transactions
+
+**Severity:** High
+
+Background threads write to the same SQLite database as web requests:
+
+- diagnostic workers: `app/diagnostics_jobs.py:61-81`;
+- kill switch: `app/camp_extensions/kill_switch.py`;
+- schedule lifecycle: `app/camp_extensions/schedule_lifecycle.py`;
+- HITL UDP listener: `app/camp_extensions/hitl_listener.py:141-176`.
+
+The watchers select a row and later update it without rechecking its status. For example, a schedule can be signed off while the lifecycle watcher later marks it expired.
+
+**Effect:** Completed work can be overwritten, duplicate actions can be logged, and SQLite lock errors can surface under load.
+
+**Recommended fix:** Use conditional updates, for example:
+
+```sql
+UPDATE Schedule
+SET status = 'Expired-AutoRemoved'
+WHERE event_id = ? AND status = 'Scheduled';
+```
+
+Check the affected-row count. For production deployment, move scheduled/background work to a single worker process or a real job queue rather than starting daemon threads in every Flask process.
+
+### DB-10: SQLite configuration is not production-safe
+
+**Severity:** Medium-High
+
+`app/config.py:18-20` only sets a 10-second timeout. The connection setup does not configure:
+
+- WAL mode;
+- foreign keys;
+- busy retry/backoff;
+- migration locking;
+- connection health checks.
+
+**Effect:** Concurrent requests and watchers can encounter `database is locked`, especially when migrations and long-running reasoner work overlap.
+
+**Recommended fix:** Centralize connection initialization and explicitly configure the selected SQLite operating mode. Keep migrations out of normal request connections. If expected write volume grows, migrate operational data to PostgreSQL rather than expanding SQLite concurrency hacks.
+
+### DB-11: Testing configuration does not represent the real database
+
+**Severity:** Medium
+
+`app/config.py:50-55` uses `:memory:` for testing, but `get_db()` opens a new connection for every operation. Each connection receives a separate in-memory database.
+
+**Effect:** Multi-request tests, migration tests, background-job tests, and route tests do not share data correctly.
+
+**Recommended fix:** Use a temporary file database per test session, or share one SQLite in-memory connection using a URI and controlled connection lifecycle. Disable background watchers in tests.
+
+### DB-12: Extension schemas are created lazily
+
+**Severity:** Medium
+
+Many extension tables are created only when a feature is first visited or used. Examples include evidence, parts, ingestion, maintenance documents, IoT, CAMSIS, and lifecycle tables.
+
+**Effect:** The database schema depends on user navigation order. Deployment checks cannot reliably know whether the schema is complete, and background threads can race table creation.
+
+**Recommended fix:** Put all schema creation in the versioned migration system and validate the complete schema at startup. Startup should fail if required tables are missing.
+
+### DB-13: Audit identity is stored as free text
+
+**Severity:** Medium
+
+Fields such as `signed_off_by`, `uploaded_by`, `scanned_by`, and `checked_out_to` store names or submitted strings rather than immutable user/engineer IDs.
+
+**Effect:** Audit history is difficult to verify, names can change, and clients can submit false operator identities.
+
+**Recommended fix:** Store `user_id`, `engineer_id`, and `company_id` alongside display snapshots. Derive the actor from the authenticated session rather than trusting form values.
+
+## Remediation Plan
+
+### Phase 0: Protect and baseline the data
+
+1. Stop the application.
+2. Copy `camp_system.db` to a protected backup location.
+3. Record the current schema and row counts.
+4. Do not run the destructive component revamp against the only copy.
+5. Decide whether the current database is development data or must be preserved as operational data.
+
+Suggested baseline commands:
+
+```powershell
+Copy-Item camp_system.db camp_system.db.pre-db-repair.bak
+sqlite3 camp_system.db ".dump" > camp_system_db_baseline.sql
+sqlite3 camp_system.db "PRAGMA foreign_key_check;"
+```
+
+### Phase 1: Establish one schema authority
+
+1. Make `run.py` plus `app/` the only supported application path.
+2. Retire or isolate root `app.py`.
+3. Create a migration runner and `schema_migrations` table.
+4. Move extension schema creation into migrations.
+5. Remove migrations from `get_db_connection()`.
+6. Stop swallowing unexpected migration errors.
+
+### Phase 2: Repair referential integrity
+
+1. Enable `PRAGMA foreign_keys = ON` for every connection.
+2. Write a repair migration for existing orphaned faults and schedules.
+3. Decide whether orphaned historical rows should be archived, remapped, or marked invalid.
+4. Add missing foreign keys and explicit delete/update policies.
+5. Run `PRAGMA foreign_key_check` and require zero violations.
+
+### Phase 3: Repair the data model
+
+1. Use stable `aircraft_id` references instead of registration text.
+2. Add company ownership through all aircraft-linked tables.
+3. Add immutable actor IDs to audit records.
+4. Add indexes for common filters and joins.
+5. Add uniqueness constraints for records that must not be duplicated.
+
+### Phase 4: Make writes safe under retry and concurrency
+
+1. Make ingestion parsing and approval idempotent.
+2. Make document generation idempotent.
+3. Use conditional updates for schedule lifecycle and kill-switch actions.
+4. Prevent duplicate diagnostics for the same aircraft while one is running.
+5. Move background work out of Flask worker processes.
+
+### Phase 5: Add tenancy enforcement
+
+1. Add reusable ownership queries/helpers.
+2. Scope every list query by company.
+3. Validate ownership before every ID-based read or write.
+4. Test cross-company access with two companies and identical resource shapes.
+
+## Implementation Status
+
+### Phase 1: One schema authority - IMPLEMENTED (2026-08-18)
+
+- **`app/migrations.py`** is now the single schema authority. All DDL and
+  seed data (core tables, auth/company tables, ingestion tables, every
+  extension table, IMDF/fullcalendar/company additive columns) live in four
+  ordered migrations (`001_core_operational_schema`,
+  `002_auth_company_schema`, `003_ingestion_pipeline_schema`,
+  `004_camp_extension_schema`).
+- Each applied migration is recorded in the new `schema_migrations` table.
+  `run_migrations()` is idempotent: once the schema is current, the common
+  path is a read-only no-op (no write lock taken on every request).
+- Pending migrations apply inside one `BEGIN IMMEDIATE` transaction with a
+  short busy retry, then `COMMIT`; any unexpected error rolls back and is
+  raised - no more swallowed `OperationalError`.
+- The only tolerated failure is "duplicate column name" inside the guarded
+  `_add_column()` helper used by additive `ALTER TABLE` upgrade paths.
+- **The Round-3 destructive component/sensor revamp is retired.** It no
+  longer runs from `get_db_connection()`. `ComponentRevampMarker` is still
+  created (with a retirement note) so existing tooling finds it, but no
+  telemetry/component rows are ever deleted or rewritten by migrations.
+- `app/database.py` is now pure connection management (no schema work).
+  `get_db_connection()` opens a plain connection and does nothing else.
+- All `ensure_*_schema()` functions (`auth`, ingestion, diagnostics jobs,
+  and every extension) are thin wrappers that call `run_migrations()`.
+  `app/camp_extensions/ext_db.py` has been deleted.
+- `app/__init__.py::create_app()` runs `run_migrations()` at startup; a
+  failing migration prevents the application from starting.
+- The root `app.py` has been isolated to `archives/legacy_app.py` (with a
+  header warning) - `python run.py` is the only supported entry point.
+- **Schema additions delivered by these migrations:** `Schedule.source` and
+  `Schedule.related_reference` (FullCalendar), `MasterMEL.source_document_id`
+  and `Directives.source_document_id` (ingestion provenance) - previously
+  these were only created lazily and were missing from the live database.
+
+Not yet done (tracked as later phases):
+
+- Phase 2: `PRAGMA foreign_keys = ON` on every connection, plus a repair
+  migration for the 19 existing violations (18 orphaned faults, 1 orphaned
+  schedule row). The orphaned rows have been left untouched by Phase 1.
+- Phase 2: missing foreign keys (DB-06), indexes (DB-07), WAL/busy settings
+  (DB-10), `TestingConfig` file-based database (DB-11), uniqueness
+  constraints (DB-08), conditional background updates (DB-09), company
+  isolation enforcement (DB-01/DB-13, Phase 5).
+
+## Test Plan
+
+### Fresh database tests
+
+- Create a new empty database.
+- Run the complete migration set once.
+- Confirm every required table exists.
+- Confirm all expected columns and indexes exist.
+- Confirm no migration is re-applied on the second connection.
+- Confirm `PRAGMA foreign_key_check` returns no rows.
+
+### Existing database upgrade tests
+
+- Use a copy of the current database, never the only live copy.
+- Apply migrations.
+- Verify all existing valid records remain available.
+- Verify orphan records are handled according to the repair policy.
+- Verify row counts before and after each migration.
+- Verify no telemetry, components, faults, or audit records disappear unexpectedly.
+
+### Referential-integrity tests
+
+Attempt to:
+
+- delete an aircraft with components;
+- insert a component for a nonexistent aircraft;
+- insert telemetry for a nonexistent component;
+- insert a fault for a nonexistent component;
+- attach evidence to a nonexistent fault or aircraft;
+- register a part for a nonexistent aircraft.
+
+Each operation should either fail cleanly or follow a documented archive/cascade policy.
+
+### Tenancy tests
+
+Create Company A and Company B, then verify that a Company A user cannot:
+
+- list Company B aircraft;
+- view Company B faults or schedules;
+- resolve Company B faults;
+- upload evidence to Company B aircraft;
+- move or cancel Company B schedules;
+- approve Company B document extractions;
+- read Company B parts or maintenance history.
+
+### Concurrency tests
+
+- Submit two diagnostic requests for the same aircraft simultaneously.
+- approve one extraction from two sessions simultaneously.
+- parse one document repeatedly and concurrently.
+- sign off a schedule while lifecycle expiry runs.
+- upload multiple evidence records for one aircraft concurrently.
+- run multiple application workers against the same test database.
+
+Expected results should include no duplicate records, no overwritten completed states, no duplicate evidence chain positions, and no unhandled lock errors.
+
+### Regression tests
+
+Run the existing application flows after migration:
+
+- login and company setup;
+- aircraft creation and update;
+- telemetry polling and fault injection;
+- diagnostics and fault resolution;
+- calendar creation and sign-off;
+- MEL deferral and resolution;
+- PIREP creation and closure;
+- evidence and parts documentation;
+- document ingestion, review, approval, and rejection;
+- maintenance-history and CRS PDF generation.
+
+## Exit Criteria
+
+Database remediation should not be considered complete until:
+
+- there is one schema authority;
+- migrations are versioned and fail loudly;
+- `PRAGMA foreign_keys` is enabled;
+- `PRAGMA foreign_key_check` returns zero rows;
+- no destructive migration runs during ordinary requests;
+- required indexes and uniqueness constraints exist;
+- cross-company access tests pass, if tenancy remains enabled;
+- concurrency tests pass without duplicate or lost records;
+- fresh and upgraded databases produce the same schema;
+- the application has a documented backup and restore procedure.

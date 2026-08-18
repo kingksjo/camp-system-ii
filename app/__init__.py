@@ -35,13 +35,29 @@ def create_app(config_name='development'):
     
     # Create upload folder
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
+
+    # Versioned schema migrations - the single schema authority. Runs once at
+    # startup, records every applied migration in schema_migrations, and
+    # fails loudly on any error (see DATABASE_AUDIT_GUIDELINES.md, Phase 1).
+    from app.migrations import run_migrations
+    run_migrations()
+
     # Register blueprints (route modules)
     register_blueprints(app)
     
     # Register template filters
     app.jinja_env.filters['abs'] = lambda x: abs(x)
     
+    # added: gap-analysis feature extensions (HITL, FullCalendar, Kill Switch,
+    # Digital Evidence, CAMSIS-3, Ghost Data, IoT Tools, Parts, L7 Environmental)
+    from app.camp_extensions import register_camp_extensions
+    register_camp_extensions(app)
+
+    # Round-3: login + company (tenant-ready) gate. Registered last so its
+    # before_request hook wraps every route above, including extensions.
+    from app.auth import register_auth_hooks
+    register_auth_hooks(app)
+
     return app
 
 

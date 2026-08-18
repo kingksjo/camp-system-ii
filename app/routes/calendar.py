@@ -1,6 +1,11 @@
 """
 Calendar and hangar schedule management routes for C.O.R.E. CAMP.
 Manages AME schedule and check events (A/B/C checks).
+
+This page now also hosts what used to be two separate sidebar items:
+the "Interactive Schedule" (FullCalendar drag/drop view) and the
+"Calendar Kill Switch" (now a hybrid live-watcher + activity log), both as
+tabs alongside the original weekly grid - see templates/calendar.html.
 """
 from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime, timedelta
@@ -8,6 +13,8 @@ import json
 from app.database import get_db
 from app.utils import create_digital_signature
 from app.cbr_engine import log_maintenance_action
+from app.license_compliance import check_schedule_signoff
+from app.camp_extensions import kill_switch
 
 bp = Blueprint('calendar', __name__)
 
@@ -116,6 +123,17 @@ def calendar():
         for item in schedule_data
     ]
 
+    # Data for the merged "Interactive Calendar" and "Activity Log" tabs
+    # (previously the separate Interactive Schedule / Calendar Kill Switch pages).
+    kill_switch.ensure_ks_schema()
+    with get_db() as conn:
+        pending_crs_scans = conn.execute('''
+            SELECT COUNT(*) as cnt FROM CRS_Records c
+            LEFT JOIN KillSwitchProcessedCRS p ON c.id = p.crs_id
+            WHERE p.crs_id IS NULL
+        ''').fetchone()['cnt']
+    activity_log = kill_switch.get_hangar_activity_log(limit=100)
+
     return render_template(
         'calendar.html',
         events=json.dumps(events),
@@ -126,7 +144,9 @@ def calendar():
         week_start=week_start,
         week_end=week_end,
         week_offset=offset,
-        hours=range(24)
+        hours=range(24),
+        pending_crs_scans=pending_crs_scans,
+        activity_log=activity_log,
     )
 
 
@@ -169,12 +189,12 @@ def schedule_check():
 
 @bp.route('/sign_off_schedule/<int:record_id>', methods=['POST'])
 def sign_off_schedule(record_id):
-    """Sign off a completed schedule item."""
+    """Sign off a completed schedule item (license-gated - see app/license_compliance.py)."""
     emp_id = request.form.get('engineer_id')
     
     with get_db() as conn:
         engineer = conn.execute(
-            'SELECT full_name, license_number, stamp_number FROM Engineers WHERE emp_id = ?',
+            'SELECT full_name, license_number, stamp_number, license_type FROM Engineers WHERE emp_id = ?',
             (emp_id,)
         ).fetchone()
         
@@ -184,6 +204,21 @@ def sign_off_schedule(record_id):
         ).fetchone()
         
         if engineer and schedule_item:
+            # License compliance gate: only engineers holding a license
+            # authorized for this class of check may sign it off (fixes the
+            # cross sign-off report - previously ANY engineer_id could sign
+            # off ANY check type here).
+            check_type = schedule_item['event_type'] if 'event_type' in schedule_item.keys() else None
+            allowed, required = check_schedule_signoff(engineer['license_type'], check_type)
+            if not allowed:
+                required_display = " or ".join(sorted(required)) if required else "an authorized"
+                return (
+                    f"<h1>COMPLIANCE LOCKOUT</h1>"
+                    f"<p>Signing off on a <b>{check_type}</b> requires {required_display} license. "
+                    f"You hold a {engineer['license_type']}.</p>"
+                    f"<a href='/calendar'>Return to Calendar</a>"
+                ), 403
+
             digital_signature = create_digital_signature(engineer)
             task_desc = f"Hangar Check: {schedule_item['title']}"
             aircraft_reg = schedule_item['aircraft_id'].replace('Aircraft_', '')

@@ -6,7 +6,8 @@ C.O.R.E. CAMP is a sophisticated Aircraft Maintenance Management (AMM) system th
 ### Core Technologies
 - **Backend:** Python (Flask)
 - **Ontology Engine:** [Owlready2](https://owlready2.readthedocs.io/) with the Pellet reasoner.
-- **Database:** SQLite (with self-healing schema migrations in `app/database.py`).
+- **Database:** SQLite with versioned migrations in `app/migrations.py` and
+  connection management in `app/database.py`.
 - **AI/ML:**
   - **Case-Based Reasoning (CBR):** Semantic search for historical maintenance cases using `scikit-learn` (TF-IDF + Cosine Similarity).
   - **Ontology-Based Reasoning:** Real-time fault detection using SWRL rules and the Pellet reasoner.
@@ -50,7 +51,10 @@ The `archives/` directory contains several utility scripts for system initializa
 - Always run `rebuild_rules.py` after modifying rule definitions to persist changes to the `.owl` files.
 
 ### Database Management
-- The application uses a "Self-Healing" database pattern in `app/database.py`'s `get_db_connection()`. Schema additions (e.g., `ALTER TABLE`) are performed on connection to ensure the database remains up-to-date with new features.
+- The application uses ordered startup migrations in `app/migrations.py`.
+- Applied migrations are recorded in `schema_migrations`.
+- `app/database.py` must remain connection-only; schema changes do not belong
+  in `get_db_connection()` or request handlers.
 
 ### Semantic Search (CBR)
 - The `retrieve_similar_cases` function in `app/cbr_engine.py` handles semantic matching. It compares current fault descriptions against the `MaintenanceHistory` table using NLP techniques.

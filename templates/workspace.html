@@ -209,4 +209,93 @@
         </table>
     </div>
 </div>
+
+<div class="glass-panel border-start-info mt-4">
+    <div class="panel-header text-info">
+        <i class="bi bi-journal-medical"></i> Master Minimum Equipment List (MMEL) Inputter
+    </div>
+    <div class="panel-body">
+        <div class="alert-bar alert-bar--info mb-3">
+            <i class="bi bi-info-circle-fill"></i>
+            <span class="fs-sm">Items entered here become the authoritative reference list the MEL Tracker draws from when an engineer defers an item - no more free-typed categories.</span>
+        </div>
+        <form action="/add_mmel_item" method="POST">
+            <div class="grid grid--2col mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label text-info">Target Aircraft Model</label>
+                    <select name="target_model" class="form-select border-info" required>
+                        {% for model in unique_models %}
+                            <option value="{{ model['model'] }}">{{ model['model'] }} Fleet</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">ATA Chapter</label>
+                    <input type="text" name="ata_chapter" class="form-input" placeholder="e.g., ATA_32">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Item Description</label>
+                <input type="text" name="item_description" class="form-input" placeholder="e.g., APU Generator inoperative" required>
+            </div>
+            <div class="grid grid--2col mb-4">
+                <div class="form-group mb-0">
+                    <label class="form-label">MMEL Category</label>
+                    <select name="mmel_category" class="form-select" required>
+                        <option value="A">Category A (Per remarks / no fixed limit)</option>
+                        <option value="B" selected>Category B (3 calendar days)</option>
+                        <option value="C">Category C (10 calendar days)</option>
+                        <option value="D">Category D (120 calendar days)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Max Deferral (days)</label>
+                    <input type="number" name="max_deferral_days" class="form-input" value="3" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Remarks / Operational Conditions</label>
+                <input type="text" name="remarks" class="form-input" placeholder="e.g., Provided APU not required for dispatch">
+            </div>
+            <button type="submit" class="btn btn--outline text-info w-100 fw-bold">Add Item to Master MEL</button>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>ATA</th>
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th>Max Days</th>
+                    <th>Remarks</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in mmel_items %}
+                <tr>
+                    <td><span class="badge badge--neutral">{{ item['target_model'] }}</span></td>
+                    <td>{{ item['ata_chapter'] or '—' }}</td>
+                    <td>{{ item['item_description'] }}</td>
+                    <td><span class="badge badge--info">{{ item['mmel_category'] }}</span></td>
+                    <td>{{ item['max_deferral_days'] }}</td>
+                    <td class="text-muted"><small>{{ item['remarks'] or '—' }}</small></td>
+                    <td>
+                        <form action="/remove_mmel_item/{{ item['mmel_id'] }}" method="POST" class="m-0" onsubmit="return confirm('Retire this MMEL item?');">
+                            <button type="submit" class="btn btn--danger btn--sm"><i class="bi bi-trash3-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted p-4">No MMEL items entered yet - add the first one above.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

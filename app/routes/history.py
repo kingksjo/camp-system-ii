@@ -12,9 +12,12 @@ bp = Blueprint('history', __name__)
 def maintenance_history():
     """Display complete maintenance history with digital signatures."""
     with get_db() as conn:
-        # Combine routine maintenance and resolved faults
+        # Combine routine maintenance and resolved faults - each row now carries
+        # its own source_type/source_id so the UI can request a document for
+        # that specific record (feature: release an actual document per entry).
         routine_history = conn.execute('''
-            SELECT aircraft_reg, task_description, signed_off_by, completion_date 
+            SELECT aircraft_reg, task_description, signed_off_by, completion_date,
+                   'maintenance_log' AS source_type, log_id AS source_id
             FROM MaintenanceHistory
             
             UNION
@@ -22,7 +25,8 @@ def maintenance_history():
             SELECT REPLACE(c.aircraft_id, 'Aircraft_', '') AS aircraft_reg, 
                    'Resolved Fault: ' || f.fault_type AS task_description, 
                    f.resolved_by AS signed_off_by, 
-                   f.resolved_date AS completion_date
+                   f.resolved_date AS completion_date,
+                   'fault' AS source_type, f.fault_id AS source_id
             FROM Faults f
             JOIN Components c ON f.component_id = c.component_id
             WHERE f.resolved = 1

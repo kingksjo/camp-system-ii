@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Airworthiness Limitations Monitor</h1>
+        <div class="page-subtitle">Deterministic component life-limit checks (regulatory ground truth, no AI inference) - formerly "CAMSIS-3 Grounding"</div>
+    </div>
+</div>
+
+<div class="glass-panel mb-4">
+    <div class="panel-body">
+        <form method="GET" class="d-flex gap-2">
+            <select name="tail" class="form-select" onchange="this.form.submit()">
+                <option value="">All Aircraft</option>
+                {% for plane in fleet %}
+                <option value="{{ plane['aircraft_id'] }}" {% if plane['aircraft_id'] == selected_tail %}selected{% endif %}>{{ plane['registration'] }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="grid grid--3col mb-4">
+    <div class="glass-panel">
+        <div class="panel-body text-center">
+            <div class="fs-3 fw-bold" style="color: var(--status-danger);">{{ overdue|length }}</div>
+            <div class="text-muted">Overdue</div>
+        </div>
+    </div>
+    <div class="glass-panel">
+        <div class="panel-body text-center">
+            <div class="fs-3 fw-bold" style="color: var(--status-warning);">{{ due_soon|length }}</div>
+            <div class="text-muted">Due Soon (&le;10% margin)</div>
+        </div>
+    </div>
+    <div class="glass-panel">
+        <div class="panel-body text-center">
+            <div class="fs-3 fw-bold" style="color: var(--status-success);">{{ results|length - overdue|length - due_soon|length }}</div>
+            <div class="text-muted">Compliant</div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-rulers"></i> Grounded Component Limits</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Component</th><th>Category</th><th>Used</th><th>Limit</th><th>Remaining</th><th>Margin</th><th>Status</th><th>Authority</th></tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                <tr {% if r['status'] == 'Overdue' %}style="background-color: rgba(239, 68, 68, 0.08);"{% endif %}>
+                    <td class="fw-bold">{{ r['component_id'] }}<br><small class="text-muted">{{ r['component_type'] }}</small></td>
+                    <td>{{ r['category'] }}</td>
+                    <td>{{ '%.1f'|format(r['used_value']) }}</td>
+                    <td>{{ '%.1f'|format(r['limit_value']) }}</td>
+                    <td>{{ '%.1f'|format(r['remaining']) }}</td>
+                    <td>{{ r['margin_pct'] }}%</td>
+                    <td>
+                        {% if r['status'] == 'Overdue' %}<span class="badge badge--danger">Overdue</span>
+                        {% elif r['status'] == 'Due Soon' %}<span class="badge badge--warning">Due Soon</span>
+                        {% else %}<span class="badge badge--success">Compliant</span>{% endif %}
+                    </td>
+                    <td class="text-muted"><small>{{ r['authority_ref'] }}</small></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-muted text-center">No components found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

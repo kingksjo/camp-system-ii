@@ -68,7 +68,7 @@
                 <i class="bi bi-wrench-adjustable"></i>
                 <span class="nav-label">Digital Tool Crib</span>
             </a>
-            <a href="/telemetry" class="nav-item">
+            <a href="/telemetry{% if request.args.get('tail') %}?tail={{ request.args.get('tail') }}{% endif %}" class="nav-item">
                 <i class="bi bi-activity"></i>
                 <span class="nav-label">Sensor Telemetry</span>
             </a>
@@ -83,6 +83,58 @@
                 <i class="bi bi-robot"></i>
                 <span class="nav-label">AI Reasoner Logs</span>
             </a>
+
+            <div style="height: 1px; background: var(--border-subtle); margin: 8px 0;"></div>
+
+            <a href="/work-orders" class="nav-item {{ 'active' if request.path.startswith('/work-order') }}">
+                <i class="bi bi-diagram-3-fill"></i>
+                <span class="nav-label">Work Order Documentation</span>
+            </a>
+            <a href="/documents/review" class="nav-item {{ 'active' if request.path.startswith('/documents/review') }}">
+                <i class="bi bi-clipboard-check"></i>
+                <span class="nav-label">Document Review</span>
+            </a>
+            <a href="/environmental" class="nav-item">
+                <i class="bi bi-cloud-drizzle"></i>
+                <span class="nav-label">Environmental Stressors</span>
+            </a>
+
+            {% set utility_paths = ['/hitl', '/ghost-data', '/maintenance-documents', '/iot-tools', '/camsis'] %}
+            <div class="nav-group{% if request.path in utility_paths %} open{% endif %}">
+                <button type="button" class="nav-item nav-group-toggle" id="utilitiesToggle">
+                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                    <span class="nav-label">Utilities</span>
+                    <i class="bi bi-chevron-down nav-group-chevron"></i>
+                </button>
+                <div class="nav-subgroup" id="utilitiesSubgroup">
+                    <a href="/hitl" class="nav-item nav-subitem {{ 'active' if request.path == '/hitl' }}">
+                        <i class="bi bi-broadcast"></i>
+                        <span class="nav-label">HITL Telemetry Bridge</span>
+                    </a>
+                    <a href="/camsis" class="nav-item nav-subitem {{ 'active' if request.path == '/camsis' }}">
+                        <i class="bi bi-rulers"></i>
+                        <span class="nav-label">Airworthiness Limitations Monitor</span>
+                    </a>
+                    <a href="/ghost-data" class="nav-item nav-subitem {{ 'active' if request.path == '/ghost-data' }}">
+                        <i class="bi bi-eraser"></i>
+                        <span class="nav-label">Ghost Data Console</span>
+                    </a>
+                    <a href="/iot-tools" class="nav-item nav-subitem {{ 'active' if request.path == '/iot-tools' }}">
+                        <i class="bi bi-bluetooth"></i>
+                        <span class="nav-label">IoT Smart Tool Bridge</span>
+                    </a>
+                    <a href="/maintenance-documents" class="nav-item nav-subitem {{ 'active' if request.path == '/maintenance-documents' }}">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <span class="nav-label">Document Register</span>
+                    </a>
+                </div>
+            </div>
+            <div style="height: 1px; background: var(--border-subtle); margin: 8px 0;"></div>
+
+            <a href="/company-profile" class="nav-item {{ 'active' if request.path == '/company-profile' }}">
+                <i class="bi bi-building"></i>
+                <span class="nav-label">Company Profile</span>
+            </a>
         </nav>
     </aside>
 
@@ -95,6 +147,15 @@
                 <div class="pulse-dot"></div>
                 System Online
             </div>
+            {% if current_username %}
+            <div class="d-flex align-items-center gap-3">
+                {% if current_company %}
+                <span class="text-muted fs-sm"><i class="bi bi-building"></i> {{ current_company.company_name }}</span>
+                {% endif %}
+                <span class="fs-sm"><i class="bi bi-person-circle"></i> {{ current_username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn--ghost btn--sm"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </div>
+            {% endif %}
         </header>
 
         <!-- Dynamic Page Content -->
@@ -162,6 +223,22 @@
             }
         });
 
+        // Collapsible "Utilities" nav group
+        const utilitiesToggle = document.getElementById('utilitiesToggle');
+        if (utilitiesToggle) {
+            const utilitiesGroup = utilitiesToggle.closest('.nav-group');
+            const UTIL_STORAGE_KEY = 'camp_utilities_open';
+
+            if (localStorage.getItem(UTIL_STORAGE_KEY) === 'true') {
+                utilitiesGroup.classList.add('open');
+            }
+
+            utilitiesToggle.addEventListener('click', function () {
+                utilitiesGroup.classList.toggle('open');
+                localStorage.setItem(UTIL_STORAGE_KEY, utilitiesGroup.classList.contains('open'));
+            });
+        }
+
         // Simple custom details toggle handler for browsers that don't auto-handle it, or specific styles
         const detailsElements = document.querySelectorAll('details');
         detailsElements.forEach(detail => {
@@ -174,5 +251,55 @@
     });
 </script>
 
+<!-- Schedule Reminder Toasts (feature: time-bound event reminders) -->
+<div id="campReminderToastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; max-width: 340px;"></div>
+<script>
+(function() {
+    const container = document.getElementById('campReminderToastContainer');
+    const shown = new Set();
+
+    function renderToast(reminder) {
+        if (shown.has(reminder.record_id)) return;
+        shown.add(reminder.record_id);
+
+        const toast = document.createElement('div');
+        toast.style.cssText = 'background: rgba(15, 23, 42, 0.95); border: 1px solid var(--accent-cyan, #00d4ff); ' +
+            'border-left: 4px solid var(--status-warning, #f59e0b); border-radius: 8px; padding: 12px 14px; ' +
+            'box-shadow: 0 8px 24px rgba(0,0,0,0.4); color: #e2e8f0; font-size: 0.85rem; animation: campToastIn 0.25s ease;';
+        toast.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
+            '  <div>' +
+            '    <div style="font-weight:600; color: var(--status-warning, #f59e0b); margin-bottom:2px;">' +
+            '      <i class="bi bi-alarm"></i> Scheduled event due' +
+            '    </div>' +
+            '    <div>' + reminder.title + '</div>' +
+            '    <div style="font-size:0.72rem; color:#94a3b8; margin-top:2px;">Started: ' + reminder.start_time + '</div>' +
+            '  </div>' +
+            '  <button style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:1rem;">&times;</button>' +
+            '</div>';
+
+        toast.querySelector('button').addEventListener('click', function () {
+            fetch('/api/schedule/reminders/' + reminder.record_id + '/ack', { method: 'POST' });
+            toast.remove();
+        });
+
+        container.appendChild(toast);
+    }
+
+    function pollReminders() {
+        fetch('/api/schedule/pending-reminders')
+            .then(r => r.json())
+            .then(reminders => { (reminders || []).forEach(renderToast); })
+            .catch(() => {});
+    }
+
+    const styleTag = document.createElement('style');
+    styleTag.textContent = '@keyframes campToastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }';
+    document.head.appendChild(styleTag);
+
+    pollReminders();
+    setInterval(pollReminders, 20000);
+})();
+</script>
 </body>
 </html>

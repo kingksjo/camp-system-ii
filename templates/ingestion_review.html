@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-clipboard-check text-primary me-2"></i> Document Review Queue</h1>
+        <div class="page-subtitle">Every extracted row from every uploaded manual — nothing below becomes real data until you approve it.</div>
+    </div>
+    <a href="/company-profile" class="btn btn--outline btn--sm"><i class="bi bi-arrow-left"></i> Company Profile</a>
+</div>
+
+{% if not tier3_configured %}
+<div class="glass-panel mb-4" style="border-left: 3px solid var(--status-warning);">
+    <div class="panel-body fs-sm">
+        <i class="bi bi-exclamation-triangle text-warning me-1"></i>
+        <b>Tier 3 (LLM-assisted) parsing is not configured</b> — no <code>ANTHROPIC_API_KEY</code> is set on this
+        server. TSM/FIM, SSM, and OEM Datasheet uploads will stay at "Uploaded" until it is. Tier 1 (MMEL, IPC,
+        WDM, CMM) parsing is unaffected — it doesn't use an LLM.
+    </div>
+</div>
+{% endif %}
+
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-files"></i> Documents</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Manual</th><th>Type</th><th>Scope</th><th>Status</th><th>Uploaded</th></tr>
+            </thead>
+            <tbody>
+                {% for d in documents %}
+                <tr>
+                    <td>{{ d.doc_label }}</td>
+                    <td><span class="badge badge--info">{{ d.manual_type }}</span></td>
+                    <td>{{ 'Fleet-wide (' ~ d.target_model ~ ')' if d.scope == 'fleet' else d.aircraft_id }}</td>
+                    <td>
+                        {% if 'Ready for Review' in d.status %}<span class="badge badge--warning">{{ d.status }}</span>
+                        {% elif d.status == 'Failed' %}<span class="badge badge--danger">{{ d.status }}</span>
+                        {% elif 'Not Configured' in d.status %}<span class="badge badge--danger">{{ d.status }}</span>
+                        {% elif d.status.startswith('Uploaded') %}<span class="badge badge--neutral">{{ d.status }}</span>
+                        {% else %}<span class="badge badge--success">{{ d.status }}</span>{% endif %}
+                    </td>
+                    <td class="text-muted fs-sm">{{ d.uploaded_at }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted p-4">No manuals uploaded yet — add one from Company Profile.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% for ingestion_id, rows in extractions_by_ingestion.items() %}
+{% set doc = documents | selectattr('ingestion_id', 'equalto', ingestion_id) | first %}
+<div class="glass-panel mb-4">
+    <div class="panel-header">
+        <i class="bi bi-table"></i> {{ doc.doc_label if doc else 'Document #' ~ ingestion_id }}
+        <span class="badge badge--info ms-1">{{ doc.manual_type if doc }}</span>
+        <span class="badge badge--neutral ms-1">{{ rows|length }} pending row(s)</span>
+        <span class="text-muted fs-sm ms-2">→ commits into <code>{{ rows[0].target_table }}</code></span>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Page</th>
+                    <th>Confidence</th>
+                    <th>Extracted Fields (editable)</th>
+                    <th>Source Excerpt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td class="text-muted">{{ row.source_page or '—' }}</td>
+                    <td>
+                        {% if row.confidence >= 0.75 %}<span class="badge badge--success">{{ '%.0f'|format(row.confidence * 100) }}%</span>
+                        {% elif row.confidence >= 0.4 %}<span class="badge badge--warning">{{ '%.0f'|format(row.confidence * 100) }}%</span>
+                        {% else %}<span class="badge badge--danger">{{ '%.0f'|format(row.confidence * 100) }}%</span>{% endif %}
+                    </td>
+                    <td>
+                        <form id="row-{{ row.extraction_id }}" class="d-flex flex-column gap-1" style="min-width: 260px;">
+                            {% for key, value in row.field_data.items() %}
+                            <div class="d-flex align-items-center gap-1">
+                                <label class="text-muted fs-sm" style="min-width: 110px;">{{ key }}</label>
+                                <input type="text" name="field_{{ key }}" form="row-{{ row.extraction_id }}"
+                                       class="form-input form-input--sm" value="{{ value if value is not none else '' }}">
+                            </div>
+                            {% endfor %}
+                        </form>
+                    </td>
+                    <td class="text-muted fs-sm" style="max-width: 220px;">{{ row.source_excerpt or '(narrative extraction — see source document)' }}</td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <button type="submit" form="row-{{ row.extraction_id }}"
+                                    formaction="{{ url_for('ingestion.approve', extraction_id=row.extraction_id) }}"
+                                    formmethod="POST" class="btn btn--success btn--sm">
+                                <i class="bi bi-check-lg"></i> Approve
+                            </button>
+                            <button type="submit" form="row-{{ row.extraction_id }}"
+                                    formaction="{{ url_for('ingestion.reject', extraction_id=row.extraction_id) }}"
+                                    formmethod="POST" class="btn btn--outline btn--sm text-danger">
+                                <i class="bi bi-x-lg"></i> Reject
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="glass-panel">
+    <div class="panel-body text-center text-muted p-4">
+        No pending extractions. Upload a manual and click "Parse Now" from Company Profile to populate this queue.
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

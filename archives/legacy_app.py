@@ -1,3 +1,18 @@
+"""
+LEGACY - DO NOT RUN.
+
+This is the retired root-level application implementation (pre-package
+architecture). It has its own database/schema setup path that diverged from
+the package application (see DATABASE_AUDIT_GUIDELINES.md, DB-05), and its
+per-connection migrations and destructive component revamp are exactly the
+behaviors Phase 1 of the database audit removed.
+
+The supported entry point is `python run.py`, which uses the `app/` package:
+- schema authority: app/migrations.py (versioned, runs at startup)
+- connection management: app/database.py (no schema work)
+
+Kept in archives/ for reference only.
+"""
 from owlready2 import *
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3

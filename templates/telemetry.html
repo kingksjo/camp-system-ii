@@ -35,9 +35,9 @@
             </button>
             <select id="faultSelector" class="form-select form-select-sm" style="width: auto;">
                 <option value="">— Inject Fault —</option>
-                <option value="overheat">Engine Overheat</option>
-                <option value="vibration">Vibration Imbalance</option>
-                <option value="pressure">Fuel Pressure Loss</option>
+                {% for opt in fault_options %}
+                <option value="{{ opt.value }}">{{ opt.label }}</option>
+                {% endfor %}
                 <option value="clear">Clear All Faults</option>
             </select>
         </div>
@@ -61,56 +61,25 @@
 
         <!-- ── Gauge Cards ──────────────────────────────────────── -->
         <div class="grid grid--3col mb-4">
-            <!-- Thermocouple Gauge -->
-            <div class="stat-card gauge-card" id="gauge-Thermocouple">
-                <div class="stat-label text-warning mb-2"><i class="bi bi-thermometer-half"></i> Thermocouple</div>
+            {% for sensor_type in active_sensor_types %}
+            {% set meta = gauge_meta[sensor_type] %}
+            {% set gid = sensor_type|replace(' ', '_') %}
+            <div class="stat-card gauge-card" id="gauge-{{ gid }}">
+                <div class="stat-label mb-2" style="color: {{ meta.color }};"><i class="bi {{ meta.icon }}"></i> {{ sensor_type }}</div>
                 <div class="gauge-wrap">
                     <svg class="gauge-svg" viewBox="0 0 200 120">
                         <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <path class="gauge-fg-arc" id="gauge-arc-Thermocouple" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <line class="gauge-needle" id="gauge-needle-Thermocouple" x1="100" y1="100" x2="100" y2="30" />
+                        <path class="gauge-fg-arc" id="gauge-arc-{{ gid }}" d="M 20 100 A 80 80 0 0 1 180 100" />
+                        <line class="gauge-needle" id="gauge-needle-{{ gid }}" x1="100" y1="100" x2="100" y2="30" />
                         <circle class="gauge-hub" cx="100" cy="100" r="6" />
                     </svg>
                 </div>
-                <div class="gauge-value" id="gauge-value-Thermocouple">— <span class="gauge-unit">°C</span></div>
-                <div class="gauge-status" id="gauge-status-Thermocouple">
+                <div class="gauge-value" id="gauge-value-{{ gid }}">— <span class="gauge-unit">{{ meta.unit }}</span></div>
+                <div class="gauge-status" id="gauge-status-{{ gid }}">
                     <span class="badge badge--neutral">Standby</span>
                 </div>
             </div>
-
-            <!-- Vibration Gauge -->
-            <div class="stat-card gauge-card" id="gauge-Vibration_Sensor">
-                <div class="stat-label text-info mb-2"><i class="bi bi-graph-up"></i> Vibration Sensor</div>
-                <div class="gauge-wrap">
-                    <svg class="gauge-svg" viewBox="0 0 200 120">
-                        <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <path class="gauge-fg-arc" id="gauge-arc-Vibration_Sensor" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <line class="gauge-needle" id="gauge-needle-Vibration_Sensor" x1="100" y1="100" x2="100" y2="30" />
-                        <circle class="gauge-hub" cx="100" cy="100" r="6" />
-                    </svg>
-                </div>
-                <div class="gauge-value" id="gauge-value-Vibration_Sensor">— <span class="gauge-unit">g</span></div>
-                <div class="gauge-status" id="gauge-status-Vibration_Sensor">
-                    <span class="badge badge--neutral">Standby</span>
-                </div>
-            </div>
-
-            <!-- Pressure Gauge -->
-            <div class="stat-card gauge-card" id="gauge-Pressure_Sensor">
-                <div class="stat-label" style="color: var(--accent-blue);"><i class="bi bi-droplet-half"></i> Pressure Sensor</div>
-                <div class="gauge-wrap">
-                    <svg class="gauge-svg" viewBox="0 0 200 120">
-                        <path class="gauge-bg-arc" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <path class="gauge-fg-arc" id="gauge-arc-Pressure_Sensor" d="M 20 100 A 80 80 0 0 1 180 100" />
-                        <line class="gauge-needle" id="gauge-needle-Pressure_Sensor" x1="100" y1="100" x2="100" y2="30" />
-                        <circle class="gauge-hub" cx="100" cy="100" r="6" />
-                    </svg>
-                </div>
-                <div class="gauge-value" id="gauge-value-Pressure_Sensor">— <span class="gauge-unit">PSI</span></div>
-                <div class="gauge-status" id="gauge-status-Pressure_Sensor">
-                    <span class="badge badge--neutral">Standby</span>
-                </div>
-            </div>
+            {% endfor %}
         </div>
 
         <!-- ── Live Event Log ────────────────────────────────────── -->
@@ -169,12 +138,8 @@
                         <td>{{ item['sensor_type'] }}</td>
                         <td class="text-right fw-bold">{{ item['reading_value'] }}</td>
                         <td class="text-center">
-                            {% if item['sensor_type'] == 'Thermocouple' and item['reading_value'] > 900 %}
-                                <span class="badge badge--danger">Over Temp</span>
-                            {% elif item['sensor_type'] == 'Vibration Sensor' and item['reading_value'] > 4.5 %}
-                                <span class="badge badge--danger">Vibration</span>
-                            {% elif item['sensor_type'] == 'Pressure Sensor' and item['reading_value'] < 20 %}
-                                <span class="badge badge--danger">Low Pressure</span>
+                            {% if item['status'] == 'fault' %}
+                                <span class="badge badge--danger">{{ item['fault_label'] }}</span>
                             {% else %}
                                 <span class="badge badge--success">Nominal</span>
                             {% endif %}
@@ -218,12 +183,10 @@
     const POLL_INTERVAL = 300000; // 5 minutes
     const MAX_LOG_ROWS = 20;
 
-    // Sensor metadata (must match backend _SENSOR_PROFILES)
-    const SENSORS = {
-        'Thermocouple': { unit: '°C', min: 0, max: 1200, threshold: 900, faultLabel: 'Over Temp', lowerFault: false },
-        'Vibration Sensor': { unit: 'g', min: 0, max: 8, threshold: 4.5, faultLabel: 'Vibration', lowerFault: false },
-        'Pressure Sensor': { unit: 'PSI', min: 0, max: 80, threshold: 20, faultLabel: 'Low Pressure', lowerFault: true },
-    };
+    // Sensor metadata - sourced from the same SENSOR_TYPE_REGISTRY the
+    // backend uses (app/routes/telemetry.py), serialized server-side so
+    // there's exactly one definition of each sensor's unit/threshold.
+    const SENSORS = {{ sensor_registry_json | safe }};
 
     function sensorKey(sensorType) {
         return sensorType.replace(/ /g, '_');
@@ -321,14 +284,12 @@
         }
     }
 
+    // Fault labels (by fault_type, not sensor_type) - same registry, server-serialized.
+    const FAULT_LABELS = {{ fault_labels_json | safe }};
+
     function showFaultBanner(activeFaults) {
         if (activeFaults && activeFaults.length > 0) {
-            const labels = {
-                'overheat': 'Engine Overheat (>900°C)',
-                'vibration': 'Vibration Imbalance (>4.5g)',
-                'pressure': 'Fuel Pressure Loss (<20 PSI)',
-            };
-            const text = activeFaults.map(f => labels[f] || f).join(' | ');
+            const text = activeFaults.map(f => FAULT_LABELS[f] || f).join(' | ');
             faultBannerText.textContent = '⚠ ACTIVE FAULT INJECTION: ' + text;
             faultBanner.style.display = 'flex';
         } else {

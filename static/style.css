@@ -817,3 +817,48 @@ a:hover {
     width: 100%;
     transition: width 1s linear;
 }
+
+/* Collapsible "Utilities" sidebar group (sidebar reorganization) */
+.nav-group {
+    display: flex;
+    flex-direction: column;
+}
+.nav-group-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    text-align: left;
+}
+.nav-group-chevron {
+    margin-left: auto !important;
+    font-size: 0.7rem !important;
+    transition: transform var(--transition-fast);
+}
+.nav-group.open .nav-group-chevron {
+    transform: rotate(180deg);
+}
+.nav-subgroup {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 14px;
+    margin-top: 4px;
+    border-left: 2px solid var(--border-subtle);
+    margin-left: 20px;
+}
+.nav-group.open .nav-subgroup {
+    display: flex;
+}
+.nav-subitem {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+.nav-subitem i {
+    font-size: 1.05rem !important;
+}
+.sidebar.collapsed .nav-subgroup {
+    display: none !important;
+}

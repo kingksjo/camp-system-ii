@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Ghost Data Elimination</h1>
+        <div class="page-subtitle">Orphaned records, stuck PIREPs, and frozen sensors</div>
+    </div>
+    {% if total_ghosts > 0 %}
+    <form action="{{ url_for('ghost_data.ghost_data_clean') }}" method="POST" onsubmit="return confirm('Apply safe fixes now? (Frozen sensors are only ever flagged, never deleted.)');">
+        <button type="submit" class="btn btn--danger"><i class="bi bi-eraser-fill"></i> Clean {{ total_ghosts }} Ghost Record(s)</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="grid grid--4col mb-4">
+    <div class="glass-panel"><div class="panel-body text-center">
+        <div class="fs-3 fw-bold">{{ findings.ghost_pireps|length }}</div>
+        <div class="text-muted">Ghost PIREPs</div>
+    </div></div>
+    <div class="glass-panel"><div class="panel-body text-center">
+        <div class="fs-3 fw-bold">{{ findings.orphaned_telemetry|length }}</div>
+        <div class="text-muted">Orphaned Telemetry</div>
+    </div></div>
+    <div class="glass-panel"><div class="panel-body text-center">
+        <div class="fs-3 fw-bold">{{ findings.orphaned_faults|length }}</div>
+        <div class="text-muted">Orphaned Faults</div>
+    </div></div>
+    <div class="glass-panel"><div class="panel-body text-center">
+        <div class="fs-3 fw-bold">{{ findings.frozen_sensors|length }}</div>
+        <div class="text-muted">Frozen Sensors</div>
+    </div></div>
+</div>
+
+{% for category, label, icon in [
+    ('ghost_pireps', 'Ghost Pilot Reports (resolved fault, PIREP still Open)', 'bi-journal-x'),
+    ('orphaned_telemetry', 'Orphaned Sensor Telemetry (component no longer exists)', 'bi-broadcast-pin'),
+    ('orphaned_faults', 'Orphaned Faults (component no longer exists)', 'bi-exclamation-octagon'),
+    ('frozen_sensors', 'Frozen / Stuck Sensors (identical reading many times in a row)', 'bi-snow')
+] %}
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi {{ icon }}"></i> {{ label }}</div>
+    <div class="panel-body">
+        {% if findings[category] %}
+            <ul class="m-0">
+                {% for item in findings[category] %}
+                <li class="text-muted mb-1">{{ item.detail }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <span class="text-muted">None found. ✅</span>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-clock-history"></i> Recent Cleanup Actions</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead><tr><th>When</th><th>Category</th><th>Target</th><th>Action</th><th>Detail</th></tr></thead>
+            <tbody>
+                {% for a in recent_actions %}
+                <tr>
+                    <td>{{ a['detected_at'] }}</td>
+                    <td>{{ a['category'] }}</td>
+                    <td>{{ a['target_table'] }} #{{ a['target_ref'] }}</td>
+                    <td><span class="badge badge--info">{{ a['action'] }}</span></td>
+                    <td class="text-muted"><small>{{ a['detail'] }}</small></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-muted text-center">No cleanup actions applied yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

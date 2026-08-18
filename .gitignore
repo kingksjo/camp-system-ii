@@ -52,6 +52,7 @@ Thumbs.db
 
 # Database files (except tracked ontologies)
 *.db
+*.db.bak
 *.sqlite
 *.sqlite3
 session.db

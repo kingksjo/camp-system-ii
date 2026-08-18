@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C.O.R.E. CAMP - {{ auth_title|default('Sign In') }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .auth-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            box-shadow: var(--shadow-depth);
+            padding: 40px;
+        }
+        .auth-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .auth-logo i {
+            font-size: 1.75rem;
+            color: var(--accent-cyan);
+        }
+        .auth-error {
+            background: var(--status-danger-bg);
+            border: 1px solid var(--status-danger-border);
+            color: var(--status-danger);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-bottom: 16px;
+        }
+        .auth-footer-link {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .auth-footer-link a { color: var(--accent-cyan); text-decoration: none; }
+        .auth-footer-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="auth-shell">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <i class="bi bi-cpu"></i>
+                <div>
+                    <div style="font-weight: 700; font-size: 1.125rem;">C.O.R.E. CAMP</div>
+                    <div style="font-size: 0.75rem; color: var(--accent-cyan);">Aviation Digital Twin</div>
+                </div>
+            </div>
+            {% block auth_content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

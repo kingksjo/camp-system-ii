@@ -9,7 +9,7 @@ def register_blueprints(app):
     from app.routes import (
         dashboard, workspace, fault_resolution, due_list,
         calendar, mel, tool_crib, reasoner, flight_log,
-        personnel, history, telemetry
+        personnel, history, telemetry, auth, ingestion
     )
     
     app.register_blueprint(dashboard.bp)
@@ -24,3 +24,5 @@ def register_blueprints(app):
     app.register_blueprint(personnel.bp)
     app.register_blueprint(history.bp)
     app.register_blueprint(telemetry.bp)
+    app.register_blueprint(auth.bp)
+    app.register_blueprint(ingestion.bp)

@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-diagram-3-fill text-primary me-2"></i> Work Order {{ ctx.work_order_number }}
+            {% if ctx.fault.resolved %}
+                <span class="badge badge--success ms-2"><i class="bi bi-check-circle"></i> Released (CRS)</span>
+            {% else %}
+                <span class="badge badge--warning ms-2"><i class="bi bi-hourglass-split"></i> Active</span>
+            {% endif %}
+        </h1>
+        <div class="page-subtitle">
+            {{ ctx.aircraft['registration'] if ctx.aircraft else 'Unknown Aircraft' }} &bull; {{ ctx.ata_chapter }} &bull; {{ ctx.fault['fault_type'] }}
+        </div>
+    </div>
+    <a href="/work-orders" class="btn btn--outline btn--sm"><i class="bi bi-arrow-left"></i> All Work Orders</a>
+</div>
+
+<div class="wo-tabbar">
+    <button type="button" class="wo-tab-btn active" data-tab="tab-auth"><i class="bi bi-file-earmark-text"></i> Authorization</button>
+    <button type="button" class="wo-tab-btn" data-tab="tab-evidence"><i class="bi bi-camera-fill"></i> Evidence Locker
+        {% if ctx.evidence_records|length %}<span class="badge badge--info ms-1">{{ ctx.evidence_records|length }}</span>{% endif %}
+    </button>
+    <button type="button" class="wo-tab-btn" data-tab="tab-parts"><i class="bi bi-upc-scan"></i> Parts Traceability</button>
+    <button type="button" class="wo-tab-btn" data-tab="tab-signoff"><i class="bi bi-shield-lock"></i> Sign-Off &amp; CRS</button>
+</div>
+
+<!-- ══════════════ STAGE 1 — AUTHORIZATION ══════════════ -->
+<div id="tab-auth" class="wo-tab-pane">
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-clipboard-data"></i> Maintenance Authorization</div>
+        <div class="panel-body">
+            <div class="grid grid--3col">
+                <div class="stat-card text-left"><div class="stat-label">Work Order Number</div><div class="fw-bold font-monospace">{{ ctx.work_order_number }}</div></div>
+                <div class="stat-card text-left"><div class="stat-label">Aircraft Registration</div><div class="fw-bold">{{ ctx.aircraft['registration'] if ctx.aircraft else '—' }}</div></div>
+                <div class="stat-card text-left"><div class="stat-label">ATA Chapter</div><div class="fw-bold">{{ ctx.ata_chapter }}</div></div>
+                <div class="stat-card text-left"><div class="stat-label">Maintenance Manual Reference</div><div class="fw-bold">{{ ctx.fault['amm_reference'] }}</div></div>
+                <div class="stat-card text-left"><div class="stat-label">Component</div><div class="fw-bold font-monospace">{{ ctx.fault['component_id'] }}</div></div>
+                <div class="stat-card text-left"><div class="stat-label">Date/Time Detected</div><div class="fw-bold">{{ ctx.fault['detected_time'] }}</div></div>
+            </div>
+            <div class="mt-3 stat-card border-start-warning text-left">
+                <div class="stat-label">Planned Maintenance Procedure</div>
+                <div>{{ ctx.fault['fault_type'] }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ STAGE 2/3/6 — EVIDENCE LOCKER ══════════════ -->
+<div id="tab-evidence" class="wo-tab-pane" style="display:none;">
+
+    {% if ctx.evidence_verification %}
+    <div class="glass-panel mb-4" style="border-left: 3px solid {{ 'var(--status-success)' if ctx.evidence_verification.valid else 'var(--status-danger)' }};">
+        <div class="panel-body">
+            {% if ctx.evidence_verification.valid %}
+                <span class="badge badge--success"><i class="bi bi-shield-check"></i> Chain Intact</span>
+                {{ ctx.evidence_verification.records_checked }} evidence record(s) on this aircraft verified against the hash chain.
+            {% else %}
+                <span class="badge badge--danger"><i class="bi bi-shield-exclamation"></i> CHAIN BROKEN</span>
+                Break detected at evidence <code>{{ ctx.evidence_verification.break_at }}</code>.
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="glass-panel mb-4">
+        <div class="panel-header"><i class="bi bi-cloud-upload"></i> Upload Evidence (Before/After Photos, NDT, Test Output, AMM Task Sheets)</div>
+        <div class="panel-body">
+            <form action="{{ url_for('evidence.evidence_upload') }}" method="POST" enctype="multipart/form-data" id="evidenceForm">
+                <input type="hidden" name="aircraft_id" value="{{ ctx.component['aircraft_id'] if ctx.component else '' }}">
+                <input type="hidden" name="fault_id" value="{{ ctx.fault['fault_id'] }}">
+                <input type="hidden" name="component_id" value="{{ ctx.fault['component_id'] }}">
+                <input type="hidden" name="latitude" id="geo_lat">
+                <input type="hidden" name="longitude" id="geo_lon">
+                <input type="hidden" name="captured_at" id="geo_captured_at">
+                <div class="grid grid--2col mb-3">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Captured By</label>
+                        <input type="text" name="uploaded_by" class="form-input" placeholder="Engineer / Employee ID" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Evidence File (photo, PDF, video)</label>
+                        <input type="file" name="evidence_file" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-input" rows="2" placeholder="What does this evidence show? (e.g. Before-removal condition, borescope image, calibration cert...)"></textarea>
+                </div>
+                <p class="text-muted" id="geoStatus"><i class="bi bi-geo-alt"></i> Requesting device location for geotagging…</p>
+                <button type="submit" class="btn btn--primary"><i class="bi bi-shield-plus"></i> Upload &amp; Seal into Chain</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel mb-4">
+        <div class="panel-header"><i class="bi bi-link-45deg"></i> Evidence Collected for this Work Order</div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead><tr><th>File</th><th>Captured</th><th>Location</th><th>Uploaded By</th><th>Hash</th></tr></thead>
+                <tbody>
+                    {% for r in ctx.evidence_records %}
+                    <tr>
+                        <td>{{ r['original_filename'] }}</td>
+                        <td>{{ r['captured_at'] }}</td>
+                        <td>
+                            {% if r['latitude'] %}{{ '%.5f'|format(r['latitude']) }}, {{ '%.5f'|format(r['longitude']) }}
+                            {% else %}<span class="text-muted">No location</span>{% endif %}
+                        </td>
+                        <td>{{ r['uploaded_by'] }}</td>
+                        <td><code style="font-size: 0.7rem;">{{ r['sha256_hash'][:16] }}…</code></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-muted text-center">No evidence uploaded yet for this Work Order.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-box-arrow-up"></i> Document Removed Component</div>
+        <div class="panel-body">
+            <form action="/work-order/{{ ctx.fault['fault_id'] }}/mark_removed" method="POST" class="grid grid--3col">
+                <div class="form-group"><label class="form-label">Part Serial (registered under Parts Traceability)</label>
+                    <input type="text" name="part_serial" class="form-input" placeholder="e.g. PN-A1B2C3D4E5" required></div>
+                <div class="form-group"><label class="form-label">Reason for Removal</label>
+                    <input type="text" name="removal_reason" class="form-input" placeholder="e.g. Failed EGT threshold" required></div>
+                <div class="form-group"><label class="form-label">Fault Code</label>
+                    <input type="text" name="fault_code" class="form-input" value="{{ ctx.fault['fault_type'] }}"></div>
+                <div class="form-group"><label class="form-label">Condition Assessment</label>
+                    <input type="text" name="condition_assessment" class="form-input" placeholder="e.g. Worn beyond limits"></div>
+                <div class="form-group"><label class="form-label">Position on Aircraft</label>
+                    <input type="text" name="position_on_aircraft" class="form-input" placeholder="e.g. Left Engine, Station 3"></div>
+                <div class="form-group"><label class="form-label">Flight Hours / Cycles at Removal</label>
+                    <div class="d-flex gap-2">
+                        <input type="number" step="0.1" name="flight_hours" class="form-input" placeholder="Hours">
+                        <input type="number" name="flight_cycles" class="form-input" placeholder="Cycles">
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <button type="submit" class="btn btn--outline"><i class="bi bi-box-arrow-up"></i> Record Removal</button>
+                </div>
+            </form>
+
+            {% if ctx.removed_parts %}
+            <div class="table-responsive mt-3">
+                <table class="data-table">
+                    <thead><tr><th>Serial</th><th>Reason</th><th>Condition</th><th>Removed</th></tr></thead>
+                    <tbody>
+                        {% for p in ctx.removed_parts %}
+                        <tr>
+                            <td class="fw-bold">{{ p['part_serial'] }}</td>
+                            <td>{{ p['removal_reason'] }}</td>
+                            <td>{{ p['condition_assessment'] or '—' }}</td>
+                            <td>{{ p['removed_date'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ STAGE 4/5 — PARTS TRACEABILITY ══════════════ -->
+<div id="tab-parts" class="wo-tab-pane" style="display:none;">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <div class="grid grid--2col mb-4">
+        <div class="glass-panel">
+            <div class="panel-header"><i class="bi bi-camera"></i> Camera QR Scan</div>
+            <div class="panel-body">
+                <div id="qr-reader" style="width: 100%;"></div>
+                <p id="qrScanStatus" class="text-muted mt-2">Point a camera at the replacement part's QR/EASA Form 1 label.</p>
+            </div>
+        </div>
+        <div class="glass-panel">
+            <div class="panel-header"><i class="bi bi-upc-scan"></i> RFID / Barcode Reader Input</div>
+            <div class="panel-body">
+                <input type="text" id="wedgeInput" class="form-input" placeholder="Scan or type a part serial, then press Enter" autofocus>
+                <div class="form-group mt-2 mb-0"><label class="form-label">Scanned By</label>
+                    <input type="text" id="scannedBy" class="form-input" placeholder="Employee ID" value="Unknown"></div>
+                <div id="scanResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-panel mb-4">
+        <div class="panel-header"><i class="bi bi-plus-circle"></i> Verify &amp; Register Replacement Part</div>
+        <div class="panel-body">
+            <form action="{{ url_for('parts.parts_register') }}" method="POST" class="grid grid--3col">
+                <input type="hidden" name="fault_id" value="{{ ctx.fault['fault_id'] }}">
+                <input type="hidden" name="aircraft_id" value="{{ ctx.component['aircraft_id'] if ctx.component else '' }}">
+                <input type="hidden" name="component_id" value="{{ ctx.fault['component_id'] }}">
+                <div class="form-group"><label class="form-label">Part Name</label>
+                    <input type="text" name="part_name" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">ATA Chapter</label>
+                    <input type="text" name="ata_chapter" class="form-input" value="{{ ctx.ata_chapter }}"></div>
+                <div class="form-group"><label class="form-label">Certificate of Conformity / EASA Form 1 Ref</label>
+                    <input type="text" name="easa_form1_ref" class="form-input" placeholder="Required for installation" required></div>
+                <div class="form-group"><label class="form-label">Manufactured Date</label>
+                    <input type="date" name="manufactured_date" class="form-input"></div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <button type="submit" class="btn btn--primary"><i class="bi bi-qr-code"></i> Register &amp; Verify</button>
+                </div>
+            </form>
+            <p class="text-muted fs-sm mt-2"><i class="bi bi-shield-exclamation"></i> Installation will be rejected on the Sign-Off tab if this part has no Certificate of Conformity / EASA Form 1 reference.</p>
+        </div>
+    </div>
+
+    {% if ctx.installed_candidates %}
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-boxes"></i> Verified Replacement Candidates for {{ ctx.fault['component_id'] }}</div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead><tr><th>Serial</th><th>Name / ATA</th><th>EASA Form 1</th><th>Registered</th></tr></thead>
+                <tbody>
+                    {% for p in ctx.installed_candidates %}
+                    <tr>
+                        <td class="fw-bold">{{ p['part_serial'] }}</td>
+                        <td>{{ p['part_name'] }}<br><small class="text-muted">{{ p['ata_chapter'] }}</small></td>
+                        <td>{{ p['easa_form1_ref'] or '—' }}</td>
+                        <td class="text-muted fs-sm">{{ p['created_at'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══════════════ STAGE 7 — SIGN-OFF & CRS ══════════════ -->
+<div id="tab-signoff" class="wo-tab-pane" style="display:none;">
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-shield-lock"></i> Engineer Sign-Off &amp; Certificate of Release to Service</div>
+        <div class="panel-body">
+            {% if ctx.fault.resolved %}
+                <div class="badge badge--success fs-sm p-2"><i class="bi bi-check-circle"></i> This Work Order has already been released. See the Document Register or Master Technical Logbook for the CRS.</div>
+            {% else %}
+            <form action="/resolve_fault/{{ ctx.fault['fault_id'] }}" method="POST" id="signOffForm">
+                <div class="form-group mb-3">
+                    <label class="form-label">Was a component removed and replaced for this Work Order?</label>
+                    <div class="d-flex gap-3">
+                        <label class="d-flex align-items-center gap-2"><input type="radio" name="component_replaced" value="1" onchange="toggleInstalledPart(true)"> Yes — component replaced</label>
+                        <label class="d-flex align-items-center gap-2"><input type="radio" name="component_replaced" value="0" checked onchange="toggleInstalledPart(false)"> No — inspection / reset / repair only</label>
+                    </div>
+                </div>
+                <div class="form-group mb-3" id="installedPartGroup" style="display:none;">
+                    <label class="form-label">Installed Replacement Part</label>
+                    <select name="installed_part_serial" class="form-select">
+                        <option value="">— select verified part —</option>
+                        {% for p in ctx.installed_candidates %}
+                        <option value="{{ p['part_serial'] }}" {% if new_part and p['part_serial'] == new_part %}selected{% endif %}>{{ p['part_serial'] }} — {{ p['part_name'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-4">
+                    <label class="form-label">Authorized Engineer</label>
+                    <select name="mechanic_id" class="form-select" required>
+                        <option value="" disabled selected>Select Authorized AME...</option>
+                        {% for eng in engineers %}
+                        <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn--success"><i class="bi bi-shield-check"></i> Sign &amp; Release CRS</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.wo-tabbar {
+    display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;
+}
+.wo-tab-btn {
+    background: none; border: none; color: var(--text-secondary);
+    padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; display: flex; align-items: center; gap: 0.4rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.wo-tab-btn:hover { background: var(--bg-panel-hover); color: var(--text-primary); }
+.wo-tab-btn.active { background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan); }
+</style>
+
+<script>
+document.querySelectorAll('.wo-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.wo-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.wo-tab-pane').forEach(p => p.style.display = 'none');
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).style.display = 'block';
+    });
+});
+
+function toggleInstalledPart(show) {
+    document.getElementById('installedPartGroup').style.display = show ? 'block' : 'none';
+}
+{% if new_part %}
+document.querySelector('.wo-tab-btn[data-tab="tab-signoff"]').click();
+toggleInstalledPart(true);
+document.querySelector('input[name="component_replaced"][value="1"]').checked = true;
+{% endif %}
+
+// Geotagging (same behavior as the standalone Evidence Locker page)
+document.getElementById('geo_captured_at').value = new Date().toISOString().slice(0, 19).replace('T', ' ');
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('geo_lat').value = pos.coords.latitude;
+        document.getElementById('geo_lon').value = pos.coords.longitude;
+        document.getElementById('geoStatus').innerHTML = '<i class="bi bi-geo-alt-fill text-success"></i> Device location acquired.';
+    }, function () {
+        document.getElementById('geoStatus').innerHTML = '<i class="bi bi-geo-alt"></i> Location unavailable — evidence will rely on file EXIF data only.';
+    });
+}
+
+// Parts scanning (same behavior as the standalone Parts Traceability page)
+async function submitScan(serial, scanType) {
+    const scannedBy = document.getElementById('scannedBy').value || 'Unknown';
+    const resp = await fetch('/api/parts/scan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ part_serial: serial, scan_type: scanType, scanned_by: scannedBy })
+    });
+    const data = await resp.json();
+    const box = document.getElementById('scanResult');
+    box.innerHTML = data.result === 'Found'
+        ? `<div class="badge badge--success">✔ ${data.part.part_name} (${data.part.part_serial})</div>`
+        : `<div class="badge badge--danger">✘ Unknown serial: ${serial}</div>`;
+}
+const wedgeInput = document.getElementById('wedgeInput');
+if (wedgeInput) {
+    wedgeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && wedgeInput.value.trim()) {
+            submitScan(wedgeInput.value.trim(), 'RFID/Barcode');
+            wedgeInput.value = '';
+        }
+    });
+}
+if (typeof Html5Qrcode !== 'undefined') {
+    const html5QrCode = new Html5Qrcode("qr-reader");
+    Html5Qrcode.getCameras().then(cameras => {
+        if (cameras && cameras.length) {
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 },
+                (decodedText) => { submitScan(decodedText, 'QR'); }, () => {});
+        } else {
+            document.getElementById('qrScanStatus').textContent = 'No camera detected on this device.';
+        }
+    }).catch(() => {
+        document.getElementById('qrScanStatus').textContent = 'Camera access unavailable (requires HTTPS + permission).';
+    });
+}
+</script>
+{% endblock %}

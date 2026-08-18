@@ -7,3 +7,6 @@ scipy
 networkx
 neo4j
 pandas
+Pillow
+reportlab
+pdfplumber

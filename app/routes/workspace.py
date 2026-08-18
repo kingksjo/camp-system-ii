@@ -5,8 +5,17 @@ Handles fleet management, directives, and maintenance tasks.
 from flask import Blueprint, render_template, request, redirect, url_for
 from app.database import get_db
 from app.utils import save_upload_file, get_aircraft_id_from_registration
+from app.auth import get_current_company_id
 
 bp = Blueprint('workspace', __name__)
+
+
+def _ensure_mmel_schema(conn):
+    """Compatibility helper - MasterMEL and MEL_Deferrals.mmel_id are created
+    by the versioned migrations (app/migrations.py). The connection argument
+    is accepted for call-site compatibility; migrations run centrally."""
+    from app.migrations import run_migrations
+    run_migrations()
 
 
 @bp.route('/workspace')
@@ -15,8 +24,12 @@ def workspace():
     with get_db() as conn:
         fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
         unique_models = conn.execute('SELECT DISTINCT model FROM Aircraft').fetchall()
-    
-    return render_template('workspace.html', fleet=fleet, unique_models=unique_models)
+
+        _ensure_mmel_schema(conn)
+        conn.commit()
+        mmel_items = conn.execute('SELECT * FROM MasterMEL ORDER BY target_model, ata_chapter').fetchall()
+
+    return render_template('workspace.html', fleet=fleet, unique_models=unique_models, mmel_items=mmel_items)
 
 
 @bp.route('/add_aircraft', methods=['POST'])
@@ -39,9 +52,9 @@ def add_aircraft():
     
     with get_db() as conn:
         conn.execute(
-            'INSERT INTO Aircraft (aircraft_id, registration, model, total_flight_hours, total_cycles, amm_pdf_path) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
-            (aircraft_id, reg, model, hours, cycles, pdf_path)
+            'INSERT INTO Aircraft (aircraft_id, registration, model, total_flight_hours, total_cycles, amm_pdf_path, company_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (aircraft_id, reg, model, hours, cycles, pdf_path, get_current_company_id())
         )
         conn.commit()
     
@@ -115,6 +128,40 @@ def add_task():
         ))
         conn.commit()
     
+    return redirect(url_for('workspace.workspace'))
+
+
+@bp.route('/add_mmel_item', methods=['POST'])
+def add_mmel_item():
+    """
+    Add an item to the Master Minimum Equipment List for an aircraft type/model
+    (feature #5 - the MEL tracker's deferrals now reference this master list
+    instead of a free-typed category, see app/routes/mel.py).
+    """
+    with get_db() as conn:
+        _ensure_mmel_schema(conn)
+        conn.execute('''
+            INSERT INTO MasterMEL (target_model, ata_chapter, item_description, mmel_category, max_deferral_days, remarks)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            request.form['target_model'],
+            request.form.get('ata_chapter', ''),
+            request.form['item_description'],
+            request.form['mmel_category'],
+            int(request.form['max_deferral_days']),
+            request.form.get('remarks', ''),
+        ))
+        conn.commit()
+
+    return redirect(url_for('workspace.workspace'))
+
+
+@bp.route('/remove_mmel_item/<int:mmel_id>', methods=['POST'])
+def remove_mmel_item(mmel_id):
+    """Retire an MMEL item from the master register."""
+    with get_db() as conn:
+        conn.execute('DELETE FROM MasterMEL WHERE mmel_id = ?', (mmel_id,))
+        conn.commit()
     return redirect(url_for('workspace.workspace'))
 
 

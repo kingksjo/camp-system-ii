@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-file-earmark-pdf text-danger me-2"></i> Maintenance Document Register</h1>
+        <div class="page-subtitle">Every certificate ever issued, for paper audit</div>
+    </div>
+</div>
+
+<div class="grid grid--1col">
+    <div class="glass-panel border-start-danger">
+        <div class="panel-header text-danger">
+            <i class="bi bi-archive"></i> Issued Documents
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Generated</th>
+                        <th>Aircraft</th>
+                        <th>Source</th>
+                        <th>Document ID</th>
+                        <th>Integrity Hash</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                    <tr>
+                        <td class="fw-bold">{{ r['generated_at'] }}</td>
+                        <td><span class="badge badge--neutral">{{ r['aircraft_reg'] }}</span></td>
+                        <td>{{ 'CRS Release' if r['source_type'] == 'crs' else 'Maintenance Log' }} #{{ r['source_id'] }}</td>
+                        <td class="font-monospace">{{ r['document_id'] }}</td>
+                        <td><code style="font-size: 0.7rem;">{{ r['document_hash'][:16] }}…</code></td>
+                        <td>
+                            <a href="{{ url_for('maintenance_documents.generate_document', source_type=r['source_type'], source_id=r['source_id']) }}" class="btn btn--outline btn--sm">
+                                <i class="bi bi-download"></i> Re-download
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted p-4">
+                            <i class="bi bi-file-earmark-x d-block mb-2 text-secondary" style="font-size: 2rem;"></i>
+                            No documents generated yet. Generate one from the <a href="{{ url_for('history.maintenance_history') }}">Master Technical Logbook</a>.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

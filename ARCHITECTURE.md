@@ -310,8 +310,8 @@ from app.database import get_db  # Context manager
 ## Common Tasks
 
 ### Add a new database column
-1. Update schema migration in `app/database.py`
-2. Existing connections will auto-apply
+1. Add the column to the appropriate ordered migration in `app/migrations.py`
+2. Run the migration against a disposable copy of the database before rollout
 
 ### Add AI fault detection
 1. Modify `app/ontology_reasoner.py`
@@ -331,7 +331,8 @@ from app.database import get_db  # Context manager
 A: Ensure you're running `python run.py`, not `python app.py`
 
 **Q: Database schema issues?**
-A: Delete `camp_system.db` and restart - schema will be recreated
+A: Inspect `schema_migrations` and migration errors; restore or test against a
+disposable database copy instead of deleting the operational database
 
 **Q: Blueprints not registering?**
 A: Check `app/routes/__init__.py` has all imports and `register_blueprints()` calls

@@ -7,6 +7,20 @@
     </div>
 </div>
 
+<div class="cal-tabbar">
+    <button type="button" class="cal-tab-btn active" data-tab="tab-grid">
+        <i class="bi bi-calendar3"></i> Weekly Grid
+    </button>
+    <button type="button" class="cal-tab-btn" data-tab="tab-interactive">
+        <i class="bi bi-calendar3-week"></i> Interactive Calendar
+    </button>
+    <button type="button" class="cal-tab-btn" data-tab="tab-activity">
+        <i class="bi bi-clock-history"></i> Activity Log
+        {% if pending_crs_scans %}<span class="badge badge--warning ms-1">{{ pending_crs_scans }}</span>{% endif %}
+    </button>
+</div>
+
+<div id="tab-grid" class="cal-tab-pane">
 <div class="grid grid--2col-aside">
     <div class="glass-panel border-start-info">
         <div class="panel-header text-info">
@@ -105,6 +119,96 @@
         {% endif %}
     </div>
 </div>
+</div><!-- /#tab-grid -->
+
+<div id="tab-interactive" class="cal-tab-pane" style="display:none;">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+    <div class="glass-panel mb-4">
+        <div class="panel-header"><i class="bi bi-plus-circle"></i> New Event (or click-drag a slot below)</div>
+        <div class="panel-body">
+            <form id="quickAddForm" class="grid grid--5col align-items-end">
+                <div class="form-group mb-0">
+                    <label class="form-label">Aircraft</label>
+                    <select id="qa_aircraft" class="form-select" required>
+                        {% for plane in fleet %}
+                        <option value="{{ plane['aircraft_id'] }}">{{ plane['registration'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Type</label>
+                    <select id="qa_type" class="form-select">
+                        <option>Flight</option>
+                        <option>A-Check</option>
+                        <option>B-Check</option>
+                        <option>C-Check</option>
+                        <option>HIL-Test</option>
+                        <option>AOG</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Start</label>
+                    <input type="datetime-local" id="qa_start" class="form-input" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">End</label>
+                    <input type="datetime-local" id="qa_end" class="form-input" required>
+                </div>
+                <div class="form-group mb-0">
+                    <button type="submit" class="btn btn--primary w-100"><i class="bi bi-calendar-plus"></i> Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel">
+        <div class="panel-body">
+            <div id="camp-calendar"></div>
+        </div>
+    </div>
+</div><!-- /#tab-interactive -->
+
+<div id="tab-activity" class="cal-tab-pane" style="display:none;">
+    <div class="glass-panel mb-4">
+        <div class="panel-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted fs-sm">
+                Consolidated record of every hangar schedule event: automatic CRS-triggered cancellations,
+                automatic 2-day expirations, and manual engineer sign-offs. The auto-cancellation watcher runs
+                every 10 seconds in the background.
+            </span>
+            <form action="{{ url_for('kill_switch.kill_switch_scan_now') }}" method="POST" class="m-0">
+                <button type="submit" class="btn btn--outline btn--sm"><i class="bi bi-arrow-repeat"></i> Scan Now
+                    {% if pending_crs_scans %}<span class="badge badge--warning ms-1">{{ pending_crs_scans }}</span>{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-clock-history"></i> Past Activity</div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Timestamp</th><th>Category</th><th>Aircraft</th><th>Detail</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in activity_log %}
+                    <tr>
+                        <td>{{ entry.timestamp }}</td>
+                        <td><span class="badge badge--{{ entry.badge }}">{{ entry.category }}</span></td>
+                        <td>{{ entry.aircraft or '—' }}</td>
+                        <td class="text-muted">{{ entry.detail }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted text-center">No hangar schedule activity recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /#tab-activity -->
 
 <!-- Sign-off Modal -->
 <div id="signOffModalOverlay" class="cal-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
@@ -279,6 +383,20 @@
     font-size: 1rem;
 }
 .cal-modal-close:hover { color: var(--text-primary); }
+
+/* Tab bar (merges what used to be 3 separate sidebar pages into this one) */
+.cal-tabbar {
+    display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;
+}
+.cal-tab-btn {
+    background: none; border: none; color: var(--text-secondary);
+    padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; display: flex; align-items: center; gap: 0.4rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.cal-tab-btn:hover { background: var(--bg-panel-hover); color: var(--text-primary); }
+.cal-tab-btn.active { background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan); }
 </style>
 
 <script>
@@ -296,5 +414,82 @@ function closeSignOffModal() {
 document.getElementById('signOffModalOverlay').addEventListener('click', function (e) {
     if (e.target === this) closeSignOffModal();
 });
+
+// --- Tab switching (Weekly Grid / Interactive Calendar / Activity Log) ---
+let campCalendarInitialized = false;
+
+document.querySelectorAll('.cal-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.cal-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.cal-tab-pane').forEach(p => p.style.display = 'none');
+        btn.classList.add('active');
+        const pane = document.getElementById(btn.dataset.tab);
+        pane.style.display = 'block';
+
+        if (btn.dataset.tab === 'tab-interactive' && !campCalendarInitialized) {
+            campCalendarInitialized = true;
+            initCampInteractiveCalendar();
+        }
+    });
+});
+
+// Deep-link support so old bookmarks to the separate pages still land on the right tab
+const campTabFromHash = { '#interactive': 'tab-interactive', '#activity-log': 'tab-activity' };
+if (campTabFromHash[window.location.hash]) {
+    document.querySelector('.cal-tab-btn[data-tab="' + campTabFromHash[window.location.hash] + '"]').click();
+}
+
+function initCampInteractiveCalendar() {
+    const calendarEl = document.getElementById('camp-calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridWeek',
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        selectable: true,
+        editable: true,
+        height: 720,
+        events: '/api/schedule/events',
+        eventDrop: function (info) {
+            fetch(`/api/schedule/events/${info.event.id}/move`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start: info.event.startStr, end: info.event.endStr || info.event.startStr })
+            });
+        },
+        eventResize: function (info) {
+            fetch(`/api/schedule/events/${info.event.id}/move`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start: info.event.startStr, end: info.event.endStr })
+            });
+        },
+        eventClick: function (info) {
+            const status = info.event.extendedProps.status || 'Scheduled';
+            if (status.startsWith('Cancelled')) return;
+            if (confirm(`Cancel "${info.event.title}"?`)) {
+                fetch(`/api/schedule/events/${info.event.id}/cancel`, { method: 'POST' })
+                    .then(() => calendar.refetchEvents());
+            }
+        },
+        select: function (info) {
+            document.getElementById('qa_start').value = info.startStr.slice(0, 16);
+            document.getElementById('qa_end').value = info.endStr.slice(0, 16);
+        }
+    });
+    calendar.render();
+
+    document.getElementById('quickAddForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetch('/api/schedule/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                aircraft_id: document.getElementById('qa_aircraft').value,
+                event_type: document.getElementById('qa_type').value,
+                start: document.getElementById('qa_start').value,
+                end: document.getElementById('qa_end').value
+            })
+        }).then(r => r.json()).then(() => calendar.refetchEvents());
+    });
+}
 </script>
 {% endblock %}

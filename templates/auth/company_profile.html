@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="bi bi-building text-info me-2"></i> Company Profile</h1>
+        <div class="page-subtitle">Hangar location, environment/corrosion matching, and aircraft documents.</div>
+    </div>
+</div>
+
+{% if onboarding %}
+<div class="glass-panel border-start-info mb-4">
+    <div class="panel-body d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle text-info fs-5"></i>
+        <span>Welcome! Set your hangar's location below so the environmental/corrosion model reflects where your fleet actually operates, then add your aircraft and upload their technical manuals (MMEL, IPC, WDM, CMM, and more) below.</span>
+    </div>
+</div>
+{% endif %}
+
+{% if matched %}
+<div class="glass-panel border-start-success mb-4">
+    <div class="panel-body d-flex align-items-center gap-2">
+        <i class="bi bi-check-circle text-success"></i>
+        <span>Matched to <strong>{{ reference_profiles[matched].label }}</strong> ({{ distance }} km from the nearest reference point).</span>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid--2col-aside mb-4">
+    <div class="glass-panel border-start-info">
+        <div class="panel-header text-info"><i class="bi bi-building"></i> Company</div>
+        <div class="panel-body">
+            <form action="{{ url_for('auth.rename_company') }}" method="POST" class="d-flex gap-2">
+                <input type="text" name="company_name" class="form-input" value="{{ company.company_name }}" required>
+                <button type="submit" class="btn btn--outline btn--sm">Save</button>
+            </form>
+            <div class="mt-3 text-muted fs-sm">
+                Signed in as <strong>{{ current_username }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-panel border-start-warning">
+        <div class="panel-header text-warning"><i class="bi bi-thermometer-sun"></i> Current Environment Profile</div>
+        <div class="panel-body">
+            {% if company.climate_profile_key %}
+            <div class="grid grid--2col">
+                <div>
+                    <div class="text-muted fs-sm">Hangar Location</div>
+                    <div class="fw-bold">{{ company.hangar_location_name }}</div>
+                </div>
+                <div>
+                    <div class="text-muted fs-sm">Corrosion Category (ISO 9223)</div>
+                    <div class="fw-bold">{{ company.corrosion_category }}</div>
+                </div>
+                <div>
+                    <div class="text-muted fs-sm">Ambient Temp</div>
+                    <div class="fw-bold">{{ company.ambient_temp_c }}&deg;C</div>
+                </div>
+                <div>
+                    <div class="text-muted fs-sm">Humidity</div>
+                    <div class="fw-bold">{{ company.humidity_pct }}%</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-muted">No hangar location set yet - using system default until you set one below.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel border-start-info mb-4">
+    <div class="panel-header"><i class="bi bi-geo-alt"></i> Set Hangar Location</div>
+    <div class="panel-body">
+        <form action="{{ url_for('auth.update_hangar_location') }}" method="POST" class="grid grid--4col align-items-end">
+            <div class="form-group mb-0">
+                <label class="form-label">Location Name</label>
+                <input type="text" name="location_name" class="form-input" placeholder="e.g., Lagos, Nigeria">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Latitude</label>
+                <input type="number" step="any" name="latitude" id="hangarLat" class="form-input" placeholder="e.g., 6.5244" required>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Longitude</label>
+                <input type="number" step="any" name="longitude" id="hangarLon" class="form-input" placeholder="e.g., 3.3792" required>
+            </div>
+            <div class="form-group mb-0">
+                <button type="submit" class="btn btn--primary w-100 fw-bold"><i class="bi bi-check-lg"></i> Match & Save</button>
+            </div>
+        </form>
+        <div class="mt-3">
+            <span class="text-muted fs-sm">Not sure of exact coordinates? Quick-pick a reference region:</span>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                {% for key, p in reference_profiles.items() %}
+                <button type="button" class="btn btn--ghost btn--sm" onclick="quickPick({{ p.lat }}, {{ p.lon }})">{{ p.label }}</button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel border-start-success mb-4">
+    <div class="panel-header text-success"><i class="bi bi-file-earmark-arrow-up"></i> Upload Technical Manual</div>
+    <div class="panel-body">
+        <p class="text-muted fs-sm mb-3">
+            Documents are classified by tier so they route into the right extraction pipeline once built
+            (see the ingestion plan): <span class="badge badge--info">Tier 1</span> structured/tabular manuals
+            parse without an LLM, <span class="badge badge--warning">Tier 2</span> are regulatory feeds,
+            <span class="badge badge--neutral">Tier 3</span> need an LLM in the loop. Nothing here writes to
+            live MEL/component data automatically — every extraction still requires engineer review once the
+            parser layer is built.
+        </p>
+        <form action="{{ url_for('auth.upload_aircraft_document') }}" method="POST" enctype="multipart/form-data" id="docUploadForm">
+            <div class="grid grid--3col mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label">Manual Type</label>
+                    <select name="manual_type" class="form-select" required>
+                        <optgroup label="Tier 1 — Structured">
+                            {% for key, m in manual_types.items() if m.tier == 1 %}
+                            <option value="{{ key }}">{{ m.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Tier 2 — Regulatory">
+                            {% for key, m in manual_types.items() if m.tier == 2 %}
+                            <option value="{{ key }}">{{ m.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Tier 3 — LLM-Assisted">
+                            {% for key, m in manual_types.items() if m.tier == 3 %}
+                            <option value="{{ key }}">{{ m.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Administrative">
+                            {% for key, m in manual_types.items() if m.tier is none %}
+                            <option value="{{ key }}">{{ m.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Applies To</label>
+                    <select name="scope" id="docScope" class="form-select" onchange="toggleDocScope()">
+                        <option value="single">A specific aircraft</option>
+                        <option value="fleet">Entire fleet of one model</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0" id="scopeAircraftGroup">
+                    <label class="form-label">Aircraft</label>
+                    {% if fleet %}
+                    <select name="aircraft_id" class="form-select">
+                        {% for plane in fleet %}
+                        <option value="{{ plane.aircraft_id }}">{{ plane.registration }} ({{ plane.model }})</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <select class="form-select" disabled><option>No aircraft on file yet</option></select>
+                    <div class="fs-sm text-muted mt-1">Add an aircraft from the CAMO Workspace first.</div>
+                    {% endif %}
+                </div>
+                <div class="form-group mb-0" id="scopeModelGroup" style="display:none;">
+                    <label class="form-label">Model</label>
+                    {% if models %}
+                    <select name="model" class="form-select">
+                        {% for m in models %}
+                        <option value="{{ m }}">{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <select class="form-select" disabled><option>No aircraft on file yet</option></select>
+                    <div class="fs-sm text-muted mt-1">Add an aircraft from the CAMO Workspace first.</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="grid grid--2col mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label">Label (optional)</label>
+                    <input type="text" name="doc_label" class="form-input" placeholder="e.g., MMEL Rev 12, IPC Ch. 28...">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">File</label>
+                    <input type="file" name="document" class="form-input" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn--success" {{ 'disabled' if not fleet }}><i class="bi bi-upload"></i> Upload</button>
+            {% if not fleet %}
+            <span class="fs-sm text-muted ms-2">Upload is disabled until at least one aircraft is on file.</span>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleDocScope() {
+    const scope = document.getElementById('docScope').value;
+    const aircraftGroup = document.getElementById('scopeAircraftGroup');
+    const modelGroup = document.getElementById('scopeModelGroup');
+    const aircraftSelect = aircraftGroup.querySelector('select[name="aircraft_id"]');
+    const modelSelect = modelGroup.querySelector('select[name="model"]');
+
+    if (scope === 'fleet') {
+        aircraftGroup.style.display = 'none';
+        modelGroup.style.display = 'block';
+        if (aircraftSelect) aircraftSelect.disabled = true;
+        if (modelSelect) modelSelect.disabled = false;
+    } else {
+        aircraftGroup.style.display = 'block';
+        modelGroup.style.display = 'none';
+        if (aircraftSelect) aircraftSelect.disabled = false;
+        if (modelSelect) modelSelect.disabled = true;
+    }
+}
+</script>
+
+<div class="glass-panel border-start-success">
+    <div class="panel-header text-success d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-airplane-fill"></i> Fleet & Aircraft Documents</span>
+        <a href="{{ url_for('ingestion.review_queue') }}" class="btn btn--outline btn--sm"><i class="bi bi-clipboard-check"></i> Review Extracted Data</a>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Aircraft</th><th>Model</th><th>Documents on File</th></tr>
+            </thead>
+            <tbody>
+                {% for plane in fleet %}
+                <tr>
+                    <td><i class="bi bi-airplane-fill text-muted"></i> {{ plane.registration }}</td>
+                    <td class="text-muted">{{ plane.model }}</td>
+                    <td>
+                        {% set docs = docs_by_aircraft.get(plane.aircraft_id, []) %}
+                        {% if docs %}
+                            {% for d in docs %}
+                            <div class="fs-sm mb-1">
+                                <i class="bi bi-file-earmark-text"></i> {{ d.doc_label }}
+                                <span class="badge badge--info">{{ d.doc_type }}</span>
+                                {% if d.ingested_tier %}
+                                <span class="badge badge--neutral">{{ tier_labels[d.ingested_tier] }}</span>
+                                <span class="text-muted">— {{ d.ingestion_status }}</span>
+                                {% endif %}
+                                {% if d.ingested_scope == 'fleet' %}
+                                <span class="text-muted"><i class="bi bi-diagram-3"></i> fleet-wide</span>
+                                {% endif %}
+                                {% if d.ingestion_status and d.ingestion_status.startswith('Uploaded') %}
+                                <form action="{{ url_for('ingestion.parse_document', ingestion_id=d.ingestion_id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn--outline btn--sm py-0 px-2"><i class="bi bi-cpu"></i> Parse Now</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted fs-sm">None yet</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-muted text-center">No aircraft on record yet. Add one from the CAMO Workspace.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function quickPick(lat, lon) {
+    document.getElementById('hangarLat').value = lat;
+    document.getElementById('hangarLon').value = lon;
+}
+</script>
+{% endblock %}

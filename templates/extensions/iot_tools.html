@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">IoT Smart Tool Bridge</h1>
+        <div class="page-subtitle">Bluetooth torque wrench ingestion &amp; spec compliance</div>
+    </div>
+</div>
+
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-bluetooth"></i> Connect a BLE Torque Tool (Web Bluetooth)</div>
+    <div class="panel-body">
+        <p class="text-muted">Requires Chrome or Edge over HTTPS/localhost. Enter your tool's GATT UUIDs (from its datasheet) - most BLE torque wrenches expose a custom service with a notify characteristic.</p>
+        <div class="grid grid--2col mb-3">
+            <div class="form-group mb-0">
+                <label class="form-label">Service UUID</label>
+                <input type="text" id="bleServiceUuid" class="form-input" placeholder="e.g. 0000ffe0-0000-1000-8000-00805f9b34fb">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Notify Characteristic UUID</label>
+                <input type="text" id="bleCharUuid" class="form-input" placeholder="e.g. 0000ffe1-0000-1000-8000-00805f9b34fb">
+            </div>
+        </div>
+        <button class="btn btn--primary" id="bleConnectBtn"><i class="bi bi-bluetooth"></i> Scan &amp; Connect</button>
+        <span id="bleStatus" class="text-muted ms-2">Not connected.</span>
+    </div>
+</div>
+
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-pencil-square"></i> Log a Reading (manual / gateway fallback)</div>
+    <div class="panel-body">
+        <form id="manualForm" class="grid grid--5col align-items-end">
+            <div class="form-group mb-0">
+                <label class="form-label">Tool</label>
+                <select id="m_tool" class="form-select">
+                    {% for t in tools %}<option value="{{ t['tool_id'] }}">{{ t['tool_id'] }} — {{ t['tool_name'] }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Fastener Spec</label>
+                <select id="m_spec" class="form-select">
+                    <option value="">— none —</option>
+                    {% for s in specs %}<option value="{{ s['spec_id'] }}">{{ s['ata_chapter'] }} — {{ s['fastener_description'] }} ({{ s['min_torque'] }}-{{ s['max_torque'] }}{{ s['unit'] }})</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Component ID</label>
+                <input type="text" id="m_component" class="form-input" placeholder="optional">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Torque Value (Nm)</label>
+                <input type="number" step="0.1" id="m_torque" class="form-input" required>
+            </div>
+            <div class="form-group mb-0">
+                <button type="submit" class="btn btn--success w-100"><i class="bi bi-cloud-upload"></i> Log Reading</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-list-ul"></i> Recent Readings</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead><tr><th>Time</th><th>Tool</th><th>Component</th><th>Torque</th><th>Source</th><th>Spec Check</th></tr></thead>
+            <tbody id="readingsBody">
+                {% for r in readings %}
+                <tr>
+                    <td>{{ r['received_at'] }}</td>
+                    <td>{{ r['tool_id'] or '—' }} <br><small class="text-muted">{{ r['device_name'] }}</small></td>
+                    <td>{{ r['component_id'] or '—' }}</td>
+                    <td>{{ r['torque_value'] }} {{ r['unit'] }}</td>
+                    <td>{{ r['ingestion_source'] }}</td>
+                    <td>
+                        {% if r['in_spec'] == 1 %}<span class="badge badge--success">In Spec</span>
+                        {% elif r['in_spec'] == 0 %}<span class="badge badge--danger">Out Of Spec</span>
+                        {% else %}<span class="badge badge--neutral">No Spec</span>{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-muted text-center">No readings logged yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function postReading(payload) {
+    const resp = await fetch('/api/iot/torque-reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    return resp.json();
+}
+
+document.getElementById('manualForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    await postReading({
+        tool_id: document.getElementById('m_tool').value,
+        spec_id: document.getElementById('m_spec').value || null,
+        component_id: document.getElementById('m_component').value || null,
+        torque_value: parseFloat(document.getElementById('m_torque').value),
+        device_name: 'Manual Entry',
+        ingestion_source: 'manual'
+    });
+    location.reload();
+});
+
+document.getElementById('bleConnectBtn').addEventListener('click', async function () {
+    const statusEl = document.getElementById('bleStatus');
+    if (!navigator.bluetooth) {
+        statusEl.textContent = 'Web Bluetooth is not available in this browser.';
+        return;
+    }
+    const serviceUuid = document.getElementById('bleServiceUuid').value.trim();
+    const charUuid = document.getElementById('bleCharUuid').value.trim();
+    if (!serviceUuid || !charUuid) {
+        statusEl.textContent = 'Enter both UUIDs from your tool datasheet first.';
+        return;
+    }
+    try {
+        statusEl.textContent = 'Requesting device...';
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [serviceUuid] }]
+        });
+        statusEl.textContent = `Connecting to ${device.name || 'device'}...`;
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(serviceUuid);
+        const characteristic = await service.getCharacteristic(charUuid);
+
+        await characteristic.startNotifications();
+        statusEl.textContent = `Connected to ${device.name || 'BLE tool'} - listening for readings.`;
+
+        characteristic.addEventListener('characteristicvaluechanged', async (event) => {
+            // Torque tools vary in encoding; this assumes a 32-bit float, little-endian.
+            // Adjust the DataView call below to match your tool's datasheet if needed.
+            const value = event.target.value.getFloat32(0, true);
+            await postReading({
+                tool_id: document.getElementById('m_tool').value,
+                spec_id: document.getElementById('m_spec').value || null,
+                component_id: document.getElementById('m_component').value || null,
+                torque_value: value,
+                device_name: device.name || 'BLE Tool',
+                ingestion_source: 'web-bluetooth'
+            });
+        });
+    } catch (err) {
+        statusEl.textContent = `Bluetooth error: ${err.message}`;
+    }
+});
+</script>
+{% endblock %}

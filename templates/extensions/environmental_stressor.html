@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Environmental Stressor Reasoning</h1>
+        <div class="page-subtitle">Layer 7 — operating environment → stressor → adjusted failure thresholds</div>
+    </div>
+</div>
+
+{% for ac in summary %}
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-cloud-drizzle"></i> {{ ac.registration }}</div>
+    <div class="panel-body">
+        <div class="grid grid--2col mb-3">
+            <div>
+                <p class="text-muted mb-1">Operating Environment: <b>{{ ac.context.get('environment_individual', '—') }}</b></p>
+                <p class="text-muted mb-1">Ambient Temp: <b>{{ ac.context.get('ambient_temp_c', '—') }}°C</b> &nbsp;|&nbsp; Humidity: <b>{{ ac.context.get('humidity_pct', '—') }}%</b></p>
+                <p class="text-muted mb-1">ISO 9223 Corrosion Category: <b>{{ ac.context.get('corrosion_category', '—') }}</b></p>
+            </div>
+            <div>
+                <p class="text-muted mb-1">Active Stressor: <b>{{ ac.active_stressor or 'None' }}</b></p>
+                <p class="text-muted mb-1">
+                    Baseline EGT Threshold: <b>900.0°C</b> &rarr;
+                    Environment-Adjusted: <b style="color: {{ 'var(--status-warning)' if ac.adjusted_egt_threshold < 900 else 'var(--text-primary)' }};">{{ ac.adjusted_egt_threshold }}°C</b>
+                </p>
+                {% if ac.adjusted_egt_threshold < 900 %}
+                <p class="text-muted"><small>Tightened because a High-intensity heat stressor modifies the EGT exceedance failure mode in this environment (L7 → L3 property chain).</small></p>
+                {% endif %}
+            </div>
+        </div>
+
+        <form action="{{ url_for('environmental.update_context') }}" method="POST" class="grid grid--4col align-items-end mb-4">
+            <input type="hidden" name="aircraft_id" value="{{ ac.aircraft_id }}">
+            <div class="form-group mb-0"><label class="form-label">Ambient Temp (°C)</label>
+                <input type="number" step="0.1" name="ambient_temp_c" class="form-input" value="{{ ac.context.get('ambient_temp_c', 35.0) }}"></div>
+            <div class="form-group mb-0"><label class="form-label">Humidity (%)</label>
+                <input type="number" step="0.1" name="humidity_pct" class="form-input" value="{{ ac.context.get('humidity_pct', 82.0) }}"></div>
+            <div class="form-group mb-0"><label class="form-label">Corrosion Category</label>
+                <select name="corrosion_category" class="form-select">
+                    {% for cat in ['C1','C2','C3','C4','C5','CX'] %}
+                    <option value="{{ cat }}" {% if ac.context.get('corrosion_category') == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select></div>
+            <div class="form-group mb-0"><button type="submit" class="btn btn--outline w-100">Update Context</button></div>
+        </form>
+
+        <table class="data-table">
+            <thead><tr><th>Component</th><th>Type</th><th>Corrosion Risk Score</th></tr></thead>
+            <tbody>
+                {% for c in ac.components %}
+                <tr>
+                    <td>{{ c.component_id }}</td>
+                    <td>{{ c.component_type }}</td>
+                    <td>
+                        <div style="background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; width: 160px;">
+                            <div style="width: {{ c.risk_score }}%; background: {{ 'var(--status-danger)' if c.risk_score > 60 else ('var(--status-warning)' if c.risk_score > 30 else 'var(--status-success)') }}; padding: 3px 6px; color: #000; font-size: 0.75rem; font-weight: 600;">
+                                {{ c.risk_score }}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-muted text-center">No components on file.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="glass-panel"><div class="panel-body text-muted text-center">No aircraft on file.</div></div>
+{% endfor %}
+{% endblock %}

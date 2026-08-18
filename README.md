@@ -17,7 +17,7 @@ C.O.R.E. CAMP leverages ontology-driven reasoning and case-based reasoning (CBR)
 
 - **Backend:** Python 3.8+ with Flask
 - **Ontology Engine:** Owlready2 with Pellet reasoner
-- **Database:** SQLite with self-healing schema migrations
+- **Database:** SQLite with versioned startup migrations
 - **AI/ML:**
   - Case-Based Reasoning: Scikit-learn (TF-IDF + Cosine Similarity)
   - Ontology Reasoning: SWRL rules and Pellet inference
@@ -102,9 +102,11 @@ camp-system-ii/
   ```
 
 ### Database Management
-- The application uses a "Self-Healing" database pattern in `app/database.py`
-- Schema additions (e.g., `ALTER TABLE`) are automatically performed on connection
-- Manual migrations can be run using `archives/update_db.py`
+- The application uses versioned migrations in `app/migrations.py`.
+- Migrations run at application startup and are recorded in `schema_migrations`.
+- `app/database.py` only manages connections; it does not mutate the schema.
+- `archives/update_db.py` is a historical utility and is not the supported
+  migration path.
 
 ### Semantic Search (CBR)
 - The `retrieve_similar_cases` function compares current fault descriptions against historical maintenance records
@@ -140,8 +142,9 @@ For production deployment, consider:
 - Check that `JAVA_HOME` environment variable is set correctly
 
 **Database Errors:**
-- The application automatically handles schema migrations
-- If issues persist, review the logs in `app/database.py` for the self-healing mechanism
+- The application applies pending versioned migrations at startup.
+- If issues persist, inspect the migration error and the `schema_migrations`
+  table; do not delete the database without a verified backup.
 
 **Import Errors:**
 - Verify all dependencies are installed: `pip install -r requirements.txt`
@@ -151,7 +154,8 @@ For production deployment, consider:
 
 1. Follow the ontology-driven development conventions
 2. Update rules in `archives/rebuild_rules.py` and run it after changes
-3. Test database migrations with `archives/update_db.py`
+3. Test database migrations using a disposable database copy and
+   `app/migrations.py`
 4. Ensure all maintenance history is properly logged
 
 ## License

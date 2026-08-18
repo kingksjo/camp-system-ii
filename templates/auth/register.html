@@ -1,0 +1,38 @@
+{% extends 'auth/auth_base.html' %}
+{% set auth_title = 'Register' %}
+{% block auth_content %}
+<h2 style="font-size: 1.25rem; margin-bottom: 4px;">Register your operation</h2>
+<div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 20px;">
+    Creates your company workspace and first admin login. You'll set your hangar location next.
+</div>
+
+{% if error %}
+<div class="auth-error"><i class="bi bi-exclamation-triangle"></i> {{ error }}</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('auth.do_register') }}" onsubmit="this.querySelector('button[type=submit]').disabled=true;">
+    <div class="form-group">
+        <label class="form-label">Company / Operator Name</label>
+        <input type="text" name="company_name" class="form-input" placeholder="e.g., Skyline MRO Ltd." required autofocus>
+    </div>
+    <div class="form-group">
+        <label class="form-label">Your Full Name</label>
+        <input type="text" name="full_name" class="form-input" placeholder="e.g., Jane Okafor">
+    </div>
+    <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" name="username" class="form-input" required>
+    </div>
+    <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-input" required>
+    </div>
+    <button type="submit" class="btn btn--primary w-100 fw-bold mt-2">
+        <i class="bi bi-building-add"></i> Create Workspace
+    </button>
+</form>
+
+<div class="auth-footer-link">
+    Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+</div>
+{% endblock %}

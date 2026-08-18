@@ -1,0 +1,59 @@
+"""
+IoT Smart Tool Integration (Feature #18).
+
+The gap noted was "architecture references torque tools, but Bluetooth
+ingestion is not fully implemented." A server process cannot itself hold a
+Bluetooth radio conversation with a wrench sitting in someone's hand - the
+browser can, though, via the real Web Bluetooth API (Chrome/Edge, HTTPS or
+localhost). This module provides:
+
+  1. A genuine Web Bluetooth GATT client (in the template's <script>) that
+     scans for, pairs with, and subscribes to notifications from a BLE
+     torque tool - no simulation, this is the actual browser API.
+  2. A plain HTTP ingestion endpoint any Bluetooth gateway (a phone app, a
+     Raspberry Pi BLE-to-WiFi bridge, etc.) can also POST readings to, since
+     not every deployment will have a Chrome tab open on the hangar floor.
+
+Either path lands in the same IoTToolReadings table and is checked against
+TorqueSpecs so an out-of-spec fastening is flagged immediately, before the
+sign-off step ever sees it.
+"""
+import uuid
+from app.database import get_db
+
+
+def ensure_iot_schema():
+    """Compatibility wrapper - IoT tables + seed specs are created by the
+    versioned migrations (app/migrations.py, migration 004)."""
+    from app.migrations import run_migrations
+    run_migrations()
+
+
+def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device_name, ingestion_source, unit='Nm'):
+    ensure_iot_schema()
+    reading_id = uuid.uuid4().hex
+
+    with get_db() as conn:
+        in_spec = None
+        spec = None
+        if spec_id:
+            spec = conn.execute('SELECT * FROM TorqueSpecs WHERE spec_id = ?', (spec_id,)).fetchone()
+            if spec:
+                in_spec = int(spec['min_torque'] <= torque_value <= spec['max_torque'])
+
+        conn.execute('''
+            INSERT INTO IoTToolReadings
+                (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source))
+
+        if in_spec == 0:
+            conn.execute(
+                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
+                (component_id or 'Unknown', 'Torque Out Of Spec',
+                 f"Tool {tool_id} recorded {torque_value}{unit}, outside spec "
+                 f"{spec['min_torque']}-{spec['max_torque']}{unit} for {spec['fastener_description']}.")
+            )
+        conn.commit()
+
+    return {'reading_id': reading_id, 'in_spec': in_spec}

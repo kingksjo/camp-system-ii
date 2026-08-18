@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Hardware-in-the-Loop Bridge</h1>
+        <div class="page-subtitle">FlightGear / bench-rig UDP telemetry ingestion</div>
+    </div>
+</div>
+
+{% if request.args.get('msg') %}
+<div class="glass-panel mb-4" style="border-left: 3px solid {{ 'var(--status-success)' if request.args.get('ok') == '1' else 'var(--status-danger)' }};">
+    <div class="panel-body">{{ request.args.get('msg') }}</div>
+</div>
+{% endif %}
+
+<div class="grid grid--2col mb-4">
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-broadcast"></i> Listener Control</div>
+        <div class="panel-body">
+            <p class="text-muted">
+                Status:
+                {% if status.running %}
+                    <span class="badge badge--success">LIVE on UDP :{{ status.port }}</span>
+                {% else %}
+                    <span class="badge badge--neutral">Stopped</span>
+                {% endif %}
+            </p>
+            <p class="text-muted">Packets received this session: <b>{{ status.packets_received }}</b></p>
+            <p class="text-muted">Last packet: <b>{{ status.last_packet_at or '—' }}</b></p>
+            {% if status.last_error %}
+                <p class="text-danger">Last error: {{ status.last_error }}</p>
+            {% endif %}
+
+            {% if not status.running %}
+            <form action="{{ url_for('hitl.hitl_start') }}" method="POST" class="mt-3">
+                <div class="grid grid--3col align-items-end">
+                    <div class="form-group mb-0">
+                        <label class="form-label">UDP Port</label>
+                        <input type="number" name="port" class="form-input" value="{{ cfg['port'] if cfg else 5599 }}" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Default Aircraft (for shorthand packets)</label>
+                        <select name="default_aircraft_id" class="form-select">
+                            <option value="">— none —</option>
+                            {% for plane in fleet %}
+                            <option value="{{ plane['aircraft_id'] }}">{{ plane['registration'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <button type="submit" class="btn btn--success w-100"><i class="bi bi-play-fill"></i> Start Listener</button>
+                    </div>
+                </div>
+            </form>
+            {% else %}
+            <form action="{{ url_for('hitl.hitl_stop') }}" method="POST" class="mt-3">
+                <button type="submit" class="btn btn--danger"><i class="bi bi-stop-fill"></i> Stop Listener</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="glass-panel">
+        <div class="panel-header"><i class="bi bi-file-earmark-code"></i> FlightGear Setup</div>
+        <div class="panel-body">
+            <p class="text-muted">1. Save the descriptor below to <code>$FG_ROOT/Protocol/camp_export.xml</code>.</p>
+            <p class="text-muted">2. Launch FlightGear with:</p>
+            <pre style="white-space: pre-wrap; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;">--generic=socket,out,5,127.0.0.1,{{ status.port }},udp,camp_export</pre>
+            <p class="text-muted">3. Or point any bench-rig / test harness at the same UDP port and send lines of:</p>
+            <pre style="white-space: pre-wrap; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;">component_id,sensor_type,reading_value</pre>
+            <a href="{{ url_for('hitl.hitl_fg_protocol') }}" class="btn btn--outline"><i class="bi bi-download"></i> Download camp_export.xml</a>
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-list-ul"></i> Recent Packets</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Received</th><th>Component</th><th>Sensor</th><th>Value</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for p in recent_packets %}
+                <tr>
+                    <td>{{ p['received_at'] }}</td>
+                    <td>{{ p['component_id'] or '—' }}</td>
+                    <td>{{ p['sensor_type'] or '—' }}</td>
+                    <td>{{ p['reading_value'] if p['reading_value'] is not none else '—' }}</td>
+                    <td>
+                        {% if p['status'] and p['status'].startswith('Rejected') %}
+                            <span class="badge badge--danger">{{ p['status'] }}</span>
+                        {% else %}
+                            <span class="badge badge--success">{{ p['status'] }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-muted text-center">No packets received yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

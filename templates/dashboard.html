@@ -104,15 +104,10 @@
                     {% endif %}
                     <div class="mt-4 pt-3" style="border-top: 1px solid var(--border-subtle);">
                         <h6 class="fs-sm mb-3 fw-bold"><i class="bi bi-shield-lock me-1"></i> Certificate of Release to Service (CRS)</h6>
-                        <form action="/resolve_fault/{{ fault['fault_id'] }}" method="POST" class="d-flex gap-2">
-                            <select name="mechanic_id" class="form-select" required>
-                                <option value="" disabled selected>Select Authorized AME...</option>
-                                {% for eng in engineers %}
-                                    <option value="{{ eng.emp_id }}">{{ eng.full_name }} ({{ eng.license_type }})</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn btn--success">Sign</button>
-                        </form>
+                        <p class="text-muted fs-sm mb-3">Opening the Work Order activates its Evidence Locker and Parts Traceability together, so removal/installation documentation and the CRS are captured in one continuous, auditable process.</p>
+                        <a href="/work-order/{{ fault['fault_id'] }}" class="btn btn--success w-100 fw-bold">
+                            <i class="bi bi-diagram-3-fill"></i> Open Work Order Documentation
+                        </a>
                     </div>
                 </div>
             </div>
@@ -480,6 +475,8 @@
         const terminal = document.getElementById('diagTerminal');
         const progressBar = document.getElementById('diagProgressBar');
         const progressLabel = document.getElementById('diagProgressLabel');
+        const form = document.getElementById('diagnosticsForm');
+        const runUrl = form.getAttribute('action');
 
         function setStepActive(n) {
             const el = document.getElementById('step' + n);
@@ -505,6 +502,63 @@
         }
 
         const now = () => new Date().toLocaleTimeString('en-GB', { hour12: false });
+
+        // Kick off the REAL analysis immediately, in the background, in parallel
+        // with the animation below - this is what fixes the freeze: the button
+        // no longer waits until the end of the animation to start a slow,
+        // blocking synchronous request. If this fetch fails for any reason
+        // (e.g. very old browser), we transparently fall back to the original
+        // plain form submit so the button still works.
+        let jobId = null;
+        let jobSettled = false;
+        let jobFailedToStart = false;
+
+        fetch(runUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(r => r.json()).then(data => {
+            jobId = data.job_id;
+            pollJob();
+        }).catch(() => {
+            jobFailedToStart = true;
+        });
+
+        function pollJob() {
+            if (!jobId) return;
+            fetch('/api/reasoner/status/' + jobId)
+                .then(r => r.json())
+                .then(job => {
+                    if (job.status === 'Complete' || job.status === 'Error') {
+                        jobSettled = true;
+                    } else {
+                        setTimeout(pollJob, 700);
+                    }
+                })
+                .catch(() => { jobSettled = true; });
+        }
+
+        // Once the cosmetic animation reaches its end, only navigate once the
+        // real background job has actually finished (checked every 400ms, with
+        // a hard cap so the tab can never sit frozen even in a worst case).
+        function finishAndNavigate() {
+            document.getElementById('diagHeaderIcon').className = 'bi bi-check-circle-fill';
+            document.querySelector('.diag-brain-icon').style.color = '#22c55e';
+
+            if (jobFailedToStart) {
+                form.submit();
+                return;
+            }
+
+            let waited = 0;
+            const maxExtraWaitMs = 20000;
+            const checkInterval = setInterval(() => {
+                waited += 400;
+                if (jobSettled || waited >= maxExtraWaitMs) {
+                    clearInterval(checkInterval);
+                    window.location.href = runUrl.replace('/run_reasoner/', '/?tail=');
+                }
+            }, 400);
+        }
 
         // Step 1: Telemetry fetch (0 → 8%)
         setStepActive(1);
@@ -560,10 +614,7 @@
             setStepDone(5);
             setProgress(100, 'All done — redirecting to dashboard…');
             addTermLine('diag-term-ok', '[' + now() + '] OK    XAI log written. Redirecting…');
-            document.getElementById('diagHeaderIcon').className = 'bi bi-check-circle-fill';
-            document.querySelector('.diag-brain-icon').style.color = '#22c55e';
-            // Now actually submit
-            document.getElementById('diagnosticsForm').submit();
+            finishAndNavigate();
         }, 7400);
     }
 </script>

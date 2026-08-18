@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Digital Evidence Locker</h1>
+        <div class="page-subtitle">Geotagged, timestamp-anchored, hash-chained evidence uploads</div>
+    </div>
+</div>
+
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-airplane"></i> Select Aircraft</div>
+    <div class="panel-body">
+        <form method="GET" class="d-flex gap-2">
+            <select name="tail" class="form-select" onchange="this.form.submit()">
+                {% for plane in fleet %}
+                <option value="{{ plane['aircraft_id'] }}" {% if plane['aircraft_id'] == selected_tail %}selected{% endif %}>{{ plane['registration'] }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+{% if verification %}
+<div class="glass-panel mb-4" style="border-left: 3px solid {{ 'var(--status-success)' if verification.valid else 'var(--status-danger)' }};">
+    <div class="panel-body">
+        {% if verification.valid %}
+            <span class="badge badge--success"><i class="bi bi-shield-check"></i> Chain Intact</span>
+            {{ verification.records_checked }} evidence record(s) verified against the hash chain.
+        {% else %}
+            <span class="badge badge--danger"><i class="bi bi-shield-exclamation"></i> CHAIN BROKEN</span>
+            Break detected at evidence <code>{{ verification.break_at }}</code> (position {{ verification.chain_position }}).
+            {{ verification.reason or '' }}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="glass-panel mb-4">
+    <div class="panel-header"><i class="bi bi-cloud-upload"></i> Upload Evidence</div>
+    <div class="panel-body">
+        <form action="{{ url_for('evidence.evidence_upload') }}" method="POST" enctype="multipart/form-data" id="evidenceForm">
+            <input type="hidden" name="aircraft_id" value="{{ selected_tail }}">
+            <input type="hidden" name="latitude" id="geo_lat">
+            <input type="hidden" name="longitude" id="geo_lon">
+            <input type="hidden" name="captured_at" id="geo_captured_at">
+            <div class="grid grid--3col mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label">Linked Open Fault (optional)</label>
+                    <select name="fault_id" class="form-select">
+                        <option value="">— none —</option>
+                        {% for f in open_faults %}
+                        <option value="{{ f['fault_id'] }}">#{{ f['fault_id'] }} — {{ f['fault_type'] }} ({{ f['component_id'] }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Captured By</label>
+                    <input type="text" name="uploaded_by" class="form-input" placeholder="Engineer / Employee ID" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Evidence File (photo, PDF, video)</label>
+                    <input type="file" name="evidence_file" class="form-input" required>
+                </div>
+            </div>
+            <div class="form-group mb-3">
+                <label class="form-label">Notes</label>
+                <textarea name="notes" class="form-input" rows="2" placeholder="What does this evidence show?"></textarea>
+            </div>
+            <p class="text-muted" id="geoStatus"><i class="bi bi-geo-alt"></i> Requesting device location for geotagging…</p>
+            <button type="submit" class="btn btn--primary"><i class="bi bi-shield-plus"></i> Upload &amp; Seal into Chain</button>
+        </form>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="panel-header"><i class="bi bi-link-45deg"></i> Evidence Chain (newest first)</div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>#</th><th>File</th><th>Captured</th><th>Location</th><th>Uploaded By</th><th>Hash</th></tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td>{{ r['chain_position'] }}</td>
+                    <td>{{ r['original_filename'] }}{% if r['fault_id'] %}<br><small class="text-muted">Fault #{{ r['fault_id'] }}</small>{% endif %}</td>
+                    <td>{{ r['captured_at'] }}</td>
+                    <td>
+                        {% if r['latitude'] %}
+                            {{ '%.5f'|format(r['latitude']) }}, {{ '%.5f'|format(r['longitude']) }}
+                            <br><small class="text-muted">{{ r['location_source'] }}</small>
+                        {% else %}
+                            <span class="text-muted">No location</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ r['uploaded_by'] }}</td>
+                    <td><code style="font-size: 0.7rem;">{{ r['sha256_hash'][:16] }}…</code></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-muted text-center">No evidence uploaded yet for this aircraft.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.getElementById('geo_captured_at').value = new Date().toISOString().slice(0, 19).replace('T', ' ');
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('geo_lat').value = pos.coords.latitude;
+        document.getElementById('geo_lon').value = pos.coords.longitude;
+        document.getElementById('geoStatus').innerHTML =
+            '<i class="bi bi-geo-alt-fill text-success"></i> Device location acquired (used only if the file has no GPS EXIF data).';
+    }, function () {
+        document.getElementById('geoStatus').innerHTML =
+            '<i class="bi bi-geo-alt"></i> Location unavailable — evidence will rely on file EXIF data only.';
+    });
+} else {
+    document.getElementById('geoStatus').innerHTML = '<i class="bi bi-geo-alt"></i> Geolocation not supported by this browser.';
+}
+</script>
+{% endblock %}
