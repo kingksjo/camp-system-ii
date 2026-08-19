@@ -7,7 +7,7 @@ the "Interactive Schedule" (FullCalendar drag/drop view) and the
 "Calendar Kill Switch" (now a hybrid live-watcher + activity log), both as
 tabs alongside the original weekly grid - see templates/calendar.html.
 """
-from flask import Blueprint, render_template, request, redirect, url_for
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from datetime import datetime, timedelta
 import json
 from app.database import get_db
@@ -170,6 +170,13 @@ def schedule_check():
     title = f"Scheduled {check_type} ({aircraft_id.replace('Aircraft_', '')})"
     
     with get_db() as conn:
+        aircraft = conn.execute(
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+        ).fetchone()
+        if not aircraft:
+            flash(f'Unknown aircraft {aircraft_id} - event not scheduled.', 'error')
+            return redirect(url_for('calendar.calendar'))
+
         conn.execute(
             'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color) '
             'VALUES (?, ?, ?, ?, ?, ?)',

@@ -2,7 +2,9 @@
 Aircraft workspace management routes for C.O.R.E. CAMP.
 Handles fleet management, directives, and maintenance tasks.
 """
-from flask import Blueprint, render_template, request, redirect, url_for
+import sqlite3
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.database import get_db
 from app.utils import save_upload_file, get_aircraft_id_from_registration
 from app.auth import get_current_company_id
@@ -167,11 +169,25 @@ def remove_mmel_item(mmel_id):
 
 @bp.route('/remove_aircraft/<aircraft_id>', methods=['POST'])
 def remove_aircraft(aircraft_id):
-    """Remove an aircraft from the fleet."""
+    """Remove an aircraft from the fleet.
+
+    Aircraft with active operational records (schedule events, MEL deferrals,
+    components, ...) cannot be deleted - foreign keys restrict the delete and
+    the user is told what happened instead of seeing a raw database error.
+    """
     with get_db() as conn:
-        conn.execute('DELETE FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,))
-        conn.commit()
-    
+        try:
+            conn.execute('DELETE FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            flash(
+                f"Aircraft {aircraft_id} cannot be deleted - it still has linked "
+                "operational records (schedule events, MEL deferrals, components, "
+                "or history). Retire the records first.",
+                'error',
+            )
+            return redirect(url_for('workspace.workspace'))
+
     return redirect(url_for('workspace.workspace'))
 
 

@@ -10,3 +10,4 @@ pandas
 Pillow
 reportlab
 pdfplumber
+pytest

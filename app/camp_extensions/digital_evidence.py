@@ -15,6 +15,7 @@ evidence was captured, or made the record tamper-evident. This module adds:
 """
 import hashlib
 import os
+import sqlite3
 import uuid
 from datetime import datetime
 
@@ -91,6 +92,25 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
     if not file_storage or file_storage.filename == '':
         raise ValueError("No file provided.")
 
+    with get_db() as conn:
+        aircraft = conn.execute(
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+        ).fetchone()
+        if not aircraft:
+            raise ValueError("Unknown aircraft - evidence not stored.")
+        if fault_id:
+            fault = conn.execute(
+                'SELECT 1 FROM Faults WHERE fault_id = ?', (fault_id,)
+            ).fetchone()
+            if not fault:
+                raise ValueError("Unknown fault - evidence not stored.")
+        if component_id:
+            component = conn.execute(
+                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+            ).fetchone()
+            if not component:
+                raise ValueError("Unknown component - evidence not stored.")
+
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
     evidence_id = uuid.uuid4().hex
     ext = os.path.splitext(file_storage.filename)[1]
@@ -122,15 +142,27 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
         chain_payload = f"{prev_hash}|{file_sha256}|{captured_at}|{uploaded_by}|{latitude}|{longitude}"
         record_hash = hashlib.sha256(chain_payload.encode('utf-8')).hexdigest()
 
-        conn.execute('''
-            INSERT INTO DigitalEvidence
-                (evidence_id, aircraft_id, fault_id, component_id, file_path, original_filename,
-                 sha256_hash, prev_hash, chain_position, latitude, longitude, location_source,
-                 captured_at, uploaded_by, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (evidence_id, aircraft_id, fault_id, component_id, filepath, file_storage.filename,
-              record_hash, prev_hash, chain_position, latitude, longitude, location_source,
-              captured_at, uploaded_by, notes))
+        for attempt in range(3):
+            try:
+                conn.execute('''
+                    INSERT INTO DigitalEvidence
+                        (evidence_id, aircraft_id, fault_id, component_id, file_path, original_filename,
+                         sha256_hash, prev_hash, chain_position, latitude, longitude, location_source,
+                         captured_at, uploaded_by, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (evidence_id, aircraft_id, fault_id, component_id, filepath, file_storage.filename,
+                      record_hash, prev_hash, chain_position, latitude, longitude, location_source,
+                      captured_at, uploaded_by, notes))
+                break
+            except sqlite3.IntegrityError:
+                if attempt >= 2:
+                    raise
+                # Two uploads claimed the same chain position - the unique
+                # index (migration 008) guards the chain; recompute and retry.
+                prev_hash = _get_last_hash(conn, aircraft_id)
+                chain_position = _get_chain_length(conn, aircraft_id) + 1
+                chain_payload = f"{prev_hash}|{file_sha256}|{captured_at}|{uploaded_by}|{latitude}|{longitude}"
+                record_hash = hashlib.sha256(chain_payload.encode('utf-8')).hexdigest()
         conn.commit()
 
     return {

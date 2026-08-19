@@ -32,6 +32,19 @@ def register_part(part_name, ata_chapter, component_id, aircraft_id, easa_form1_
     ensure_parts_schema()
     part_serial = part_serial or f"PN-{uuid.uuid4().hex[:10].upper()}"
     with get_db() as conn:
+        if component_id:
+            component = conn.execute(
+                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+            ).fetchone()
+            if not component:
+                raise ValueError("Unknown component - part not registered.")
+        if aircraft_id:
+            aircraft = conn.execute(
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            ).fetchone()
+            if not aircraft:
+                raise ValueError("Unknown aircraft - part not registered.")
+
         conn.execute('''
             INSERT INTO PartRecords
                 (part_serial, part_name, ata_chapter, component_id, aircraft_id, easa_form1_ref,

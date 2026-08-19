@@ -7,7 +7,7 @@ keeps a permanent record log (MaintenanceDocuments table) of every document
 ever issued - the paper-audit trail the request asked for.
 
 COMPONENT FRAMEWORK
---------------------
+-------------------
 The system currently only really populates telemetry-bearing components
 (Engine, Landing_Gear/HIL-Rig). So that adding a new physical component
 category (APU, avionics LRU, hydraulic pump, etc.) to these documents is a
@@ -23,6 +23,7 @@ Nothing else in this file (or the route/template) needs to change.
 """
 import hashlib
 import os
+import sqlite3
 import uuid
 from datetime import datetime
 
@@ -199,11 +200,28 @@ def generate_document(source_type, source_id):
         document_hash = hashlib.sha256(f.read()).hexdigest()
 
     with get_db() as conn:
-        conn.execute('''
-            INSERT INTO MaintenanceDocuments (document_id, source_type, source_id, aircraft_reg, file_path, document_hash)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (document_id, source_type, str(source_id), header['aircraft_reg'], file_path, document_hash))
-        conn.commit()
+        try:
+            conn.execute('''
+                INSERT INTO MaintenanceDocuments (document_id, source_type, source_id, aircraft_reg, file_path, document_hash)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (document_id, source_type, str(source_id), header['aircraft_reg'], file_path, document_hash))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            # Lost the race to a concurrent generate_document() for the same
+            # source - the unique index (migration 008) is the source of
+            # truth. Remove the orphan PDF we just wrote and hand back the
+            # winner's record.
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+            existing = conn.execute(
+                'SELECT * FROM MaintenanceDocuments WHERE source_type = ? AND source_id = ?',
+                (source_type, str(source_id))
+            ).fetchone()
+            if existing and os.path.exists(existing['file_path']):
+                return {'file_path': existing['file_path'], 'document_id': existing['document_id'], 'already_existed': True}
+            raise
 
     return {'file_path': file_path, 'document_id': document_id, 'already_existed': False}
 

@@ -89,6 +89,12 @@ def api_create_event():
         return dt_str
 
     with get_db() as conn:
+        aircraft = conn.execute(
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+        ).fetchone()
+        if not aircraft:
+            return jsonify({'status': 'error', 'message': f'Unknown aircraft {aircraft_id}'}), 400
+
         cur = conn.execute(
             'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color, status, source, related_reference) '
             'VALUES (?, ?, ?, ?, ?, ?, "Scheduled", "fullcalendar", ?)',

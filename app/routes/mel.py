@@ -7,7 +7,7 @@ Equipment List (input via the CAMO workspace, see app/routes/workspace.py)
 instead of a free-typed description + category. Manual/ad-hoc entries are
 still supported for anything not yet in the master list.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash
 from datetime import datetime
 from app.database import get_db
 from app.utils import create_digital_signature
@@ -37,6 +37,22 @@ def mel():
     if request.method == 'POST':
         mmel_id = request.form.get('mmel_id') or None
         with get_db() as conn:
+            aircraft = conn.execute(
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?',
+                (request.form['aircraft_id'],)
+            ).fetchone()
+            if not aircraft:
+                flash('Unknown aircraft - deferral not recorded.', 'error')
+                return redirect(url_for('mel.mel'))
+
+            if mmel_id:
+                mmel_item = conn.execute(
+                    'SELECT 1 FROM MasterMEL WHERE mmel_id = ?', (mmel_id,)
+                ).fetchone()
+                if not mmel_item:
+                    flash('Selected MMEL item no longer exists - deferral not recorded.', 'error')
+                    return redirect(url_for('mel.mel'))
+
             conn.execute(
                 'INSERT INTO MEL_Deferrals (aircraft_id, item_description, mel_category, date_deferred, mmel_id) '
                 'VALUES (?, ?, ?, ?, ?)',

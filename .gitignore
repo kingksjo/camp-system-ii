@@ -55,6 +55,7 @@ Thumbs.db
 *.db.bak
 *.sqlite
 *.sqlite3
+*.bak
 session.db
 
 # Uploads and temporary files

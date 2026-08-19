@@ -2,7 +2,9 @@
 Pilot report (PIREP) and flight log routes for C.O.R.E. CAMP.
 Handles crew discrepancies and auto-fault generation.
 """
-from flask import Blueprint, render_template, request, redirect, url_for
+import sqlite3
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.database import get_db
 
 bp = Blueprint('flight_log', __name__)
@@ -15,8 +17,15 @@ def flight_log():
         aircraft_id = request.form.get('aircraft_id')
         reported_by = request.form.get('reported_by').strip()
         discrepancy_text = request.form.get('discrepancy_text').strip()
-        
+
         with get_db() as conn:
+            aircraft = conn.execute(
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            ).fetchone()
+            if not aircraft:
+                flash('Unknown aircraft - PIREP not recorded.', 'error')
+                return redirect(url_for('flight_log.flight_log'))
+
             # Create pilot report
             cursor = conn.execute(
                 'INSERT INTO PilotReports (aircraft_id, reported_by, discrepancy_text) VALUES (?, ?, ?)',
@@ -43,12 +52,17 @@ def flight_log():
             except Exception:
                 pass
             
-            # Create fault record
-            conn.execute(
-                'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
-                'VALUES (?, ?, "Pilot Report", 0, ?)',
-                (unique_airframe_id, fault_type, f"PIREP_ID_{pirep_id}")
-            )
+            # Create fault record. Identical duplicate PIREPs are collapsed
+            # by the migration-008 partial unique index - the PIREP itself
+            # is still recorded above, only the redundant fault is skipped.
+            try:
+                conn.execute(
+                    'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
+                    'VALUES (?, ?, "Pilot Report", 0, ?)',
+                    (unique_airframe_id, fault_type, f"PIREP_ID_{pirep_id}")
+                )
+            except sqlite3.IntegrityError:
+                pass
             
             conn.commit()
         

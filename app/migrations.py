@@ -19,6 +19,7 @@ Each migration function runs inside one transaction against the connection
 passed in by the runner - it must NOT open its own connection (SQLite
 write-lock ordering makes that a deadlock risk).
 """
+import json
 import sqlite3
 import time
 
@@ -41,6 +42,8 @@ def _connect():
     conn = sqlite3.connect(Config.DATABASE_PATH, timeout=Config.DB_TIMEOUT)
     conn.row_factory = sqlite3.Row
     conn.isolation_level = None  # autocommit; transactions managed explicitly
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(f"PRAGMA busy_timeout = {Config.DB_BUSY_TIMEOUT_MS}")
     return conn
 
 
@@ -84,6 +87,7 @@ def run_migrations():
         _begin_immediate(conn)
         _ensure_migrations_table(conn)
         applied = _applied_versions(conn)
+        applied_now = []
         for migration in MIGRATIONS:
             if migration["version"] in applied:
                 continue
@@ -92,7 +96,14 @@ def run_migrations():
                 "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
                 (migration["version"], migration["name"]),
             )
+            applied_now.append(migration)
         conn.execute("COMMIT")
+        # Optional post-commit step - runs OUTSIDE the migration transaction
+        # (e.g. PRAGMA journal_mode = WAL, which SQLite refuses inside one).
+        for migration in applied_now:
+            post_commit = migration.get("post_commit")
+            if post_commit is not None:
+                post_commit(conn)
     except Exception:
         try:
             conn.execute("ROLLBACK")
@@ -799,6 +810,427 @@ def _migration_004_extensions(conn):
 
 
 # ---------------------------------------------------------------------------
+# Migration 5: Phase 2A - repair referential-integrity orphans
+# ---------------------------------------------------------------------------
+# Phase 2A of the database audit (see DATABASE_AUDIT_GUIDELINES.md). Before
+# foreign keys are enforced on every connection, the known orphan rows are
+# repaired:
+#
+# - Faults.component_id values pointing at deleted components are archived to
+#   FKRepairAudit and set to NULL (history is preserved, not deleted);
+# - Faults.telemetry_id values pointing at deleted telemetry rows are archived
+#   and set to NULL;
+# - Schedule rows referencing deleted aircraft (logical orphans - Schedule has
+#   no FK yet) are archived in full and removed, so later FK additions start
+#   from a clean slate.
+#
+# The audit table keeps the original values so any future forensic review can
+# see exactly what was broken and when it was repaired.
+
+_FK_REPAIR_AUDIT_TABLE = """
+    CREATE TABLE IF NOT EXISTS FKRepairAudit (
+        repair_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repaired_table TEXT NOT NULL,
+        repaired_row_id TEXT NOT NULL,
+        repaired_column TEXT NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        reason TEXT,
+        repaired_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+
+def _migration_005_fk_repair(conn):
+    conn.execute(_FK_REPAIR_AUDIT_TABLE)
+
+    orphan_components = conn.execute(
+        """
+        SELECT f.fault_id, f.component_id
+        FROM Faults f
+        LEFT JOIN Components c ON f.component_id = c.component_id
+        WHERE f.component_id IS NOT NULL AND c.component_id IS NULL
+        """
+    ).fetchall()
+    for row in orphan_components:
+        conn.execute(
+            "INSERT INTO FKRepairAudit (repaired_table, repaired_row_id, repaired_column, old_value, new_value, reason) "
+            "VALUES ('Faults', ?, 'component_id', ?, NULL, ?)",
+            (row["fault_id"], row["component_id"],
+             "Orphaned component reference - component no longer exists in Components"),
+        )
+        conn.execute("UPDATE Faults SET component_id = NULL WHERE fault_id = ?", (row["fault_id"],))
+
+    orphan_telemetry = conn.execute(
+        """
+        SELECT f.fault_id, f.telemetry_id
+        FROM Faults f
+        LEFT JOIN SensorTelemetry t ON f.telemetry_id = t.telemetry_id
+        WHERE f.telemetry_id IS NOT NULL AND t.telemetry_id IS NULL
+        """
+    ).fetchall()
+    for row in orphan_telemetry:
+        conn.execute(
+            "INSERT INTO FKRepairAudit (repaired_table, repaired_row_id, repaired_column, old_value, new_value, reason) "
+            "VALUES ('Faults', ?, 'telemetry_id', ?, NULL, ?)",
+            (row["fault_id"], row["telemetry_id"],
+             "Orphaned telemetry reference - telemetry row no longer exists in SensorTelemetry"),
+        )
+        conn.execute("UPDATE Faults SET telemetry_id = NULL WHERE fault_id = ?", (row["fault_id"],))
+
+    orphan_schedules = conn.execute(
+        """
+        SELECT s.event_id, s.aircraft_id, s.event_type, s.title, s.start_time, s.end_time, s.color, s.status
+        FROM Schedule s
+        LEFT JOIN Aircraft a ON s.aircraft_id = a.aircraft_id
+        WHERE s.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL
+        """
+    ).fetchall()
+    for row in orphan_schedules:
+        conn.execute(
+            "INSERT INTO FKRepairAudit (repaired_table, repaired_row_id, repaired_column, old_value, new_value, reason) "
+            "VALUES ('Schedule', ?, 'aircraft_id', ?, 'DELETED', ?)",
+            (row["event_id"], json.dumps(dict(row), sort_keys=True),
+             "Orphaned schedule row - aircraft no longer exists in Aircraft; row archived then removed"),
+        )
+        conn.execute("DELETE FROM Schedule WHERE event_id = ?", (row["event_id"],))
+
+
+# ---------------------------------------------------------------------------
+# Migration 6: Phase 2B - add missing foreign keys (DB-06)
+# ---------------------------------------------------------------------------
+# Phase 2B of the database audit (see DATABASE_AUDIT_GUIDELINES.md). SQLite
+# cannot add a FOREIGN KEY with ALTER TABLE, so each table is rebuilt:
+# create a new table with the same columns plus FK clauses, copy the rows,
+# drop the old table, rename the new one, and preserve the AUTOINCREMENT
+# sequence.
+#
+# Delete policy (product decision, confirmed 2026-08-18):
+# - Schedule.aircraft_id and MEL_Deferrals.aircraft_id use ON DELETE RESTRICT:
+#   aircraft deletion is blocked while active schedule/MEL records exist.
+# - Every audit/history reference (evidence, parts, environmental risk,
+#   CAMSIS grounding, IoT readings, mmel_id, replacement serial) uses
+#   ON DELETE SET NULL so historical records survive parent retirement.
+
+_REBUILD_PREFLIGHT = [
+    ("Schedule.aircraft_id",
+     "SELECT COUNT(*) FROM Schedule s LEFT JOIN Aircraft a ON s.aircraft_id = a.aircraft_id "
+     "WHERE s.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL"),
+    ("MEL_Deferrals.aircraft_id",
+     "SELECT COUNT(*) FROM MEL_Deferrals m LEFT JOIN Aircraft a ON m.aircraft_id = a.aircraft_id "
+     "WHERE m.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL"),
+    ("MEL_Deferrals.mmel_id",
+     "SELECT COUNT(*) FROM MEL_Deferrals m LEFT JOIN MasterMEL l ON m.mmel_id = l.mmel_id "
+     "WHERE m.mmel_id IS NOT NULL AND l.mmel_id IS NULL"),
+    ("DigitalEvidence.aircraft_id",
+     "SELECT COUNT(*) FROM DigitalEvidence d LEFT JOIN Aircraft a ON d.aircraft_id = a.aircraft_id "
+     "WHERE d.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL"),
+    ("DigitalEvidence.fault_id",
+     "SELECT COUNT(*) FROM DigitalEvidence d LEFT JOIN Faults f ON d.fault_id = f.fault_id "
+     "WHERE d.fault_id IS NOT NULL AND f.fault_id IS NULL"),
+    ("DigitalEvidence.component_id",
+     "SELECT COUNT(*) FROM DigitalEvidence d LEFT JOIN Components c ON d.component_id = c.component_id "
+     "WHERE d.component_id IS NOT NULL AND c.component_id IS NULL"),
+    ("PartRecords.component_id",
+     "SELECT COUNT(*) FROM PartRecords p LEFT JOIN Components c ON p.component_id = c.component_id "
+     "WHERE p.component_id IS NOT NULL AND c.component_id IS NULL"),
+    ("PartRecords.aircraft_id",
+     "SELECT COUNT(*) FROM PartRecords p LEFT JOIN Aircraft a ON p.aircraft_id = a.aircraft_id "
+     "WHERE p.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL"),
+    ("PartRecords.replaced_by_serial",
+     "SELECT COUNT(*) FROM PartRecords p LEFT JOIN PartRecords p2 ON p.replaced_by_serial = p2.part_serial "
+     "WHERE p.replaced_by_serial IS NOT NULL AND p2.part_serial IS NULL"),
+    ("EnvironmentalRiskLog.aircraft_id",
+     "SELECT COUNT(*) FROM EnvironmentalRiskLog e LEFT JOIN Aircraft a ON e.aircraft_id = a.aircraft_id "
+     "WHERE e.aircraft_id IS NOT NULL AND a.aircraft_id IS NULL"),
+    ("EnvironmentalRiskLog.component_id",
+     "SELECT COUNT(*) FROM EnvironmentalRiskLog e LEFT JOIN Components c ON e.component_id = c.component_id "
+     "WHERE e.component_id IS NOT NULL AND c.component_id IS NULL"),
+    ("CAMSISGroundingLog.component_id",
+     "SELECT COUNT(*) FROM CAMSISGroundingLog g LEFT JOIN Components c ON g.component_id = c.component_id "
+     "WHERE g.component_id IS NOT NULL AND c.component_id IS NULL"),
+    ("CAMSISGroundingLog.limit_id",
+     "SELECT COUNT(*) FROM CAMSISGroundingLog g LEFT JOIN CAMSISLimits l ON g.limit_id = l.limit_id "
+     "WHERE g.limit_id IS NOT NULL AND l.limit_id IS NULL"),
+    ("IoTToolReadings.tool_id",
+     "SELECT COUNT(*) FROM IoTToolReadings r LEFT JOIN ToolCrib t ON r.tool_id = t.tool_id "
+     "WHERE r.tool_id IS NOT NULL AND t.tool_id IS NULL"),
+    ("IoTToolReadings.task_id",
+     "SELECT COUNT(*) FROM IoTToolReadings r LEFT JOIN MaintenanceTasks t ON r.task_id = t.task_id "
+     "WHERE r.task_id IS NOT NULL AND t.task_id IS NULL"),
+    ("IoTToolReadings.component_id",
+     "SELECT COUNT(*) FROM IoTToolReadings r LEFT JOIN Components c ON r.component_id = c.component_id "
+     "WHERE r.component_id IS NOT NULL AND c.component_id IS NULL"),
+    ("IoTToolReadings.spec_id",
+     "SELECT COUNT(*) FROM IoTToolReadings r LEFT JOIN TorqueSpecs s ON r.spec_id = s.spec_id "
+     "WHERE r.spec_id IS NOT NULL AND s.spec_id IS NULL"),
+]
+
+# Replacement DDL - column names/order must match the live tables exactly.
+# Only the FOREIGN KEY / ON DELETE clauses are new.
+_REBUILD_DDL = [
+    """CREATE TABLE Schedule (
+        event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        aircraft_id TEXT REFERENCES Aircraft(aircraft_id) ON DELETE RESTRICT,
+        event_type TEXT,
+        title TEXT,
+        start_time DATETIME,
+        end_time DATETIME,
+        color TEXT,
+        status TEXT DEFAULT 'Scheduled',
+        source TEXT DEFAULT 'legacy',
+        related_reference TEXT
+    )""",
+    """CREATE TABLE MEL_Deferrals (
+        deferral_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        aircraft_id TEXT REFERENCES Aircraft(aircraft_id) ON DELETE RESTRICT,
+        item_description TEXT,
+        mel_category TEXT,
+        date_deferred DATETIME,
+        status TEXT DEFAULT 'Active',
+        mmel_id INTEGER REFERENCES MasterMEL(mmel_id) ON DELETE SET NULL
+    )""",
+    """CREATE TABLE DigitalEvidence (
+        evidence_id TEXT PRIMARY KEY,
+        aircraft_id TEXT REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL,
+        fault_id INTEGER REFERENCES Faults(fault_id) ON DELETE SET NULL,
+        component_id TEXT REFERENCES Components(component_id) ON DELETE SET NULL,
+        file_path TEXT,
+        original_filename TEXT,
+        sha256_hash TEXT,
+        prev_hash TEXT,
+        chain_position INTEGER,
+        latitude REAL,
+        longitude REAL,
+        location_source TEXT,
+        captured_at DATETIME,
+        uploaded_by TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""",
+    """CREATE TABLE PartRecords (
+        part_serial TEXT PRIMARY KEY,
+        part_name TEXT,
+        ata_chapter TEXT,
+        component_id TEXT REFERENCES Components(component_id) ON DELETE SET NULL,
+        aircraft_id TEXT REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL,
+        easa_form1_ref TEXT,
+        manufactured_date TEXT,
+        installed_date TEXT,
+        status TEXT DEFAULT 'In Service',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        removal_reason TEXT,
+        condition_assessment TEXT,
+        fault_code TEXT,
+        position_on_aircraft TEXT,
+        flight_hours_at_removal REAL,
+        flight_cycles_at_removal INTEGER,
+        removed_date TEXT,
+        replaced_by_serial TEXT REFERENCES PartRecords(part_serial) ON DELETE SET NULL
+    )""",
+    """CREATE TABLE EnvironmentalRiskLog (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        aircraft_id TEXT REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL,
+        component_id TEXT REFERENCES Components(component_id) ON DELETE SET NULL,
+        sensor_type TEXT,
+        stressor TEXT,
+        base_threshold REAL,
+        adjusted_threshold REAL,
+        corrosion_risk_score REAL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""",
+    """CREATE TABLE CAMSISGroundingLog (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        component_id TEXT REFERENCES Components(component_id) ON DELETE SET NULL,
+        limit_id INTEGER REFERENCES CAMSISLimits(limit_id) ON DELETE SET NULL,
+        limit_category TEXT,
+        used_value REAL,
+        limit_value REAL,
+        remaining REAL,
+        margin_pct REAL,
+        status TEXT,
+        computed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""",
+    """CREATE TABLE IoTToolReadings (
+        reading_id TEXT PRIMARY KEY,
+        tool_id TEXT REFERENCES ToolCrib(tool_id) ON DELETE SET NULL,
+        task_id TEXT REFERENCES MaintenanceTasks(task_id) ON DELETE SET NULL,
+        component_id TEXT REFERENCES Components(component_id) ON DELETE SET NULL,
+        torque_value REAL,
+        unit TEXT DEFAULT 'Nm',
+        spec_id INTEGER REFERENCES TorqueSpecs(spec_id) ON DELETE SET NULL,
+        in_spec INTEGER,
+        device_name TEXT,
+        ingestion_source TEXT,
+        received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""",
+]
+
+
+def _rebuild_table_with_fk(conn, table, ddl):
+    """Copy table rows into a new FK-constrained table, then swap them."""
+    new_name = f"{table}__new"
+    seq = None
+    try:
+        seq = conn.execute(
+            "SELECT seq FROM sqlite_sequence WHERE name = ?", (table,)
+        ).fetchone()
+    except sqlite3.OperationalError:
+        pass
+
+    conn.execute(ddl.replace(f"CREATE TABLE {table} (", f"CREATE TABLE {new_name} (", 1))
+    conn.execute(f"INSERT INTO {new_name} SELECT * FROM {table}")
+    conn.execute(f"DROP TABLE {table}")
+    conn.execute(f"ALTER TABLE {new_name} RENAME TO {table}")
+    if seq is not None:
+        conn.execute(
+            "INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES (?, ?)",
+            (table, seq["seq"]),
+        )
+
+
+def _migration_006_missing_foreign_keys(conn):
+    for label, sql in _REBUILD_PREFLIGHT:
+        count = conn.execute(sql).fetchone()[0]
+        if count:
+            raise RuntimeError(
+                f"Migration 006 aborted: {count} orphan row(s) in {label} - "
+                "repair the data before enforcing this foreign key"
+            )
+
+    for table in ('Schedule', 'MEL_Deferrals', 'DigitalEvidence', 'PartRecords',
+                  'EnvironmentalRiskLog', 'CAMSISGroundingLog', 'IoTToolReadings'):
+        ddl = next(d for d in _REBUILD_DDL if d.startswith(f"CREATE TABLE {table} ("))
+        _rebuild_table_with_fk(conn, table, ddl)
+
+
+# ---------------------------------------------------------------------------
+# Migration 7: query indexes (Phase 2C, DB-07) + WAL journal mode (DB-10)
+# ---------------------------------------------------------------------------
+# Every index below exists because a real code path filters/sorts on those
+# columns (verified with EXPLAIN QUERY PLAN in Phase 2C, 2026-08-19):
+#
+#   Schedule(start_time)                     fullcalendar + dashboard ORDER BY
+#   Schedule(aircraft_id, status)            kill switch open-event lookup
+#   SensorTelemetry(component_id, sensor_type, recorded_at)
+#                                            telemetry pages, ontology reasoner
+#                                            MAX(recorded_at), ghost-data dedup
+#   Faults(component_id, resolved, fault_type)
+#                                            reasoner active-fault lookup
+#   DigitalEvidence(aircraft_id, chain_position)     evidence chain reads
+#   DigitalEvidence(fault_id, chain_position)        IMDF/evidence by fault
+#   PartRecords(component_id, status)                IMDF in-service/removed
+#   MEL_Deferrals(aircraft_id, status)               kill switch MEL close
+#   PilotReports(status)                             ghost data + flight log
+#   MaintenanceDocuments(generated_at)               document list ordering
+#   MaintenanceDocuments(source_type, source_id)     document dedup lookup
+#   Components(aircraft_id)                          CAMSIS/env component scans
+
+
+_QUERY_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_schedule_start_time ON Schedule(start_time)",
+    "CREATE INDEX IF NOT EXISTS idx_schedule_aircraft_status ON Schedule(aircraft_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_component_sensor_recorded "
+    "ON SensorTelemetry(component_id, sensor_type, recorded_at)",
+    "CREATE INDEX IF NOT EXISTS idx_faults_component_resolved "
+    "ON Faults(component_id, resolved, fault_type)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_aircraft_chain "
+    "ON DigitalEvidence(aircraft_id, chain_position)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_fault_chain "
+    "ON DigitalEvidence(fault_id, chain_position)",
+    "CREATE INDEX IF NOT EXISTS idx_parts_component_status "
+    "ON PartRecords(component_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_mel_aircraft_status "
+    "ON MEL_Deferrals(aircraft_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_pilotreports_status ON PilotReports(status)",
+    "CREATE INDEX IF NOT EXISTS idx_maintdocs_generated ON MaintenanceDocuments(generated_at)",
+    "CREATE INDEX IF NOT EXISTS idx_maintdocs_source "
+    "ON MaintenanceDocuments(source_type, source_id)",
+    "CREATE INDEX IF NOT EXISTS idx_components_aircraft ON Components(aircraft_id)",
+]
+
+
+def _migration_007_query_indexes(conn):
+    for ddl in _QUERY_INDEXES:
+        conn.execute(ddl)
+
+
+def _migration_007_post_commit(conn):
+    """Persist WAL mode in the database file (DB-10).
+
+    Runs after COMMIT because SQLite refuses a journal-mode change from inside
+    a transaction. WAL lets background watchers (kill switch, schedule
+    lifecycle) and request handlers read while a writer is active, instead of
+    serializing on the file lock. synchronous stays at the default FULL so
+    durability semantics are unchanged.
+    """
+    conn.execute("PRAGMA journal_mode = WAL")
+
+
+# ---------------------------------------------------------------------------
+# Migration 8: uniqueness & idempotency guards (Phase 3A, DB-08)
+# ---------------------------------------------------------------------------
+# Each unique index backs a read-then-write pattern that could race when two
+# requests/threads hit it at the same time (double-click, background watcher
+# + request, two reasoner runs). The application code catches the resulting
+# IntegrityError and treats it as "already recorded":
+#
+#   Faults(component_id, fault_type) WHERE resolved = 0
+#       the ontology reasoner checks for an existing OPEN fault before
+#       inserting; without the constraint two concurrent runs both pass the
+#       check and create duplicate rows. Partial: only open faults are
+#       unique - a resolved fault may legitimately be detected again later,
+#       and SQLite treats NULL component_id as distinct (legacy repaired
+#       rows and airframe-level PIREP faults never collide).
+#   IngestedDocuments(doc_id)
+#       exactly one ingestion row per AircraftDocuments row (1:1) - the
+#       upload flow inserts them together; guards against double-inserts on
+#       retried requests.
+#   MaintenanceDocuments(source_type, source_id)
+#       generate_document() returns the existing PDF when one exists; the
+#       unique index makes that read-then-write race-safe (replaces the
+#       non-unique idx_maintdocs_source from 007, which is now redundant).
+#   DigitalEvidence(aircraft_id, chain_position)
+#       chain positions are computed as COUNT+1; concurrent uploads for the
+#       same aircraft could otherwise claim the same position and silently
+#       break the tamper-evident hash chain (replaces the non-unique
+#       idx_evidence_aircraft_chain from 007).
+#
+# Deliberately NOT constrained: DiagnosticJobs (job_id is a uuid and two
+# "Run Diagnostics" clicks are separate legitimate runs) and the append-only
+# audit logs (XAILogs, PartScanLog, ScheduleLifecycleLog, ...) where
+# duplicate rows are normal.
+#
+# Audited 2026-08-19: the live database contains zero duplicate rows in any
+# of these shapes - the indexes are preventive, not repairs. If a future
+# database does contain duplicates, this migration fails loudly and rolls
+# back (same policy as migration 006).
+
+_UNIQUENESS_INDEXES = [
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_faults_open_component_type "
+    "ON Faults(component_id, fault_type) WHERE resolved = 0",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_ingested_documents_doc_id "
+    "ON IngestedDocuments(doc_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_maintdocs_source_unique "
+    "ON MaintenanceDocuments(source_type, source_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_evidence_chain_position "
+    "ON DigitalEvidence(aircraft_id, chain_position)",
+]
+
+_REDUNDANT_INDEX_DROPS = [
+    "DROP INDEX IF EXISTS idx_maintdocs_source",
+    "DROP INDEX IF EXISTS idx_evidence_aircraft_chain",
+]
+
+
+def _migration_008_uniqueness(conn):
+    for ddl in _UNIQUENESS_INDEXES:
+        conn.execute(ddl)
+    for ddl in _REDUNDANT_INDEX_DROPS:
+        conn.execute(ddl)
+
+
+# ---------------------------------------------------------------------------
 # Ordered migration register
 # ---------------------------------------------------------------------------
 
@@ -807,4 +1239,13 @@ MIGRATIONS = [
     {'version': 2, 'name': '002_auth_company_schema', 'apply': _migration_002_auth_company},
     {'version': 3, 'name': '003_ingestion_pipeline_schema', 'apply': _migration_003_ingestion},
     {'version': 4, 'name': '004_camp_extension_schema', 'apply': _migration_004_extensions},
+    {'version': 5, 'name': '005_fk_orphan_repair', 'apply': _migration_005_fk_repair},
+    {'version': 6, 'name': '006_missing_foreign_keys', 'apply': _migration_006_missing_foreign_keys},
+    {
+        'version': 7,
+        'name': '007_query_indexes',
+        'apply': _migration_007_query_indexes,
+        'post_commit': _migration_007_post_commit,
+    },
+    {'version': 8, 'name': '008_uniqueness_constraints', 'apply': _migration_008_uniqueness},
 ]

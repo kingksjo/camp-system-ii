@@ -34,12 +34,33 @@ def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device
     reading_id = uuid.uuid4().hex
 
     with get_db() as conn:
+        if tool_id:
+            tool = conn.execute(
+                'SELECT 1 FROM ToolCrib WHERE tool_id = ?', (tool_id,)
+            ).fetchone()
+            if not tool:
+                raise ValueError(f"Unknown tool {tool_id}")
+        if task_id:
+            task = conn.execute(
+                'SELECT 1 FROM MaintenanceTasks WHERE task_id = ?', (task_id,)
+            ).fetchone()
+            if not task:
+                raise ValueError(f"Unknown task {task_id}")
+        if component_id:
+            component = conn.execute(
+                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+            ).fetchone()
+            if not component:
+                raise ValueError(f"Unknown component {component_id}")
+
         in_spec = None
         spec = None
         if spec_id:
             spec = conn.execute('SELECT * FROM TorqueSpecs WHERE spec_id = ?', (spec_id,)).fetchone()
             if spec:
                 in_spec = int(spec['min_torque'] <= torque_value <= spec['max_torque'])
+            else:
+                raise ValueError(f"Unknown torque spec {spec_id}")
 
         conn.execute('''
             INSERT INTO IoTToolReadings

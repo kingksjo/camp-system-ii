@@ -23,6 +23,7 @@ This version:
      evaluation (which is exactly what already happens whenever the
      ontology-inferred fault list is empty).
 """
+import sqlite3
 import uuid
 import threading
 from datetime import datetime
@@ -368,12 +369,18 @@ def run_fleet_analysis(aircraft_id):
                 ).fetchone()
 
                 if not existing:
-                    conn.execute(
-                        'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
-                        'VALUES (?, ?, ?, 0, ?)',
-                        (analysis['component_id'], analysis['fault_detected'],
-                         analysis['severity'], analysis['amm_reference'])
-                    )
+                    try:
+                        conn.execute(
+                            'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
+                            'VALUES (?, ?, ?, 0, ?)',
+                            (analysis['component_id'], analysis['fault_detected'],
+                             analysis['severity'], analysis['amm_reference'])
+                        )
+                    except sqlite3.IntegrityError:
+                        # A concurrent reasoner run already recorded this open
+                        # fault - the partial unique index (migration 008)
+                        # closed the race the SELECT above cannot.
+                        pass
 
         conn.commit()
 

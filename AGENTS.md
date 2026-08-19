@@ -35,7 +35,14 @@ To start the Flask server:
 ```bash
 python run.py
 ```
-*Note: The application is configured to run on `http://127.0.0.1:500` by default (though logs may mention port 5000).*
+*Note: The application runs on `http://127.0.0.1:5000` (see `run.py` and `app/__init__.py`).*
+
+### Running Tests
+Automated migration/database tests live in `tests/` and are run with:
+```bash
+python -m pytest tests
+```
+*`CAMP_DATABASE_PATH` env var overrides the SQLite file used at app import/startup (used by the test harness to avoid touching the live database).*
 
 ### Maintenance & Setup Scripts
 The `archives/` directory contains several utility scripts for system initialization and maintenance:

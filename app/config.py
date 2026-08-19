@@ -2,6 +2,7 @@
 Configuration settings for C.O.R.E. CAMP application.
 """
 import os
+import tempfile
 
 class Config:
     """Base configuration."""
@@ -16,8 +17,9 @@ class Config:
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
     
     # Database Settings
-    DATABASE_PATH = 'camp_system.db'
+    DATABASE_PATH = os.environ.get('CAMP_DATABASE_PATH', 'camp_system.db')
     DB_TIMEOUT = 10.0  # SQLite timeout for concurrent access
+    DB_BUSY_TIMEOUT_MS = 10000  # busy_timeout per connection (mirrors DB_TIMEOUT)
     
     # Ontology Settings
     ONTOLOGY_PATH = '.'
@@ -48,10 +50,20 @@ class ProductionConfig(Config):
 
 
 class TestingConfig(Config):
-    """Testing configuration."""
+    """Testing configuration - file-backed database.
+
+    ':memory:' is unusable here: every sqlite3.connect(':memory:') creates a
+    separate, empty database, so the migration connection would never share
+    schema with request connections. A real temp file makes the app factory,
+    migrations, and every connection operate on one database (Phase 2C,
+    DB-11).
+    """
     TESTING = True
-    DATABASE_PATH = ':memory:'
     DEBUG = True
+    DATABASE_PATH = (
+        os.environ.get('CAMP_DATABASE_PATH')
+        or os.path.join(tempfile.gettempdir(), 'camp_core_testing.db')
+    )
 
 
 # Configuration selector

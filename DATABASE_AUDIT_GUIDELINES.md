@@ -45,18 +45,23 @@ The application code was then traced for:
 - background threads and database writes;
 - transaction boundaries and swallowed exceptions.
 
-## Evidence From The Current Database
+## Evidence From The Database (baseline at audit time)
 
-The live database currently reports:
+The live database **at audit time** (before any Phase 2 repair) reported:
 
-- `PRAGMA foreign_keys` is `0`.
-- SQLite is using `delete` journal mode, not WAL.
-- `PRAGMA foreign_key_check` reports 19 violations.
-- 18 `Faults` rows reference deleted component IDs.
-- 1 `Faults` row references a missing `SensorTelemetry` row.
-- 1 `Schedule` row references deleted aircraft `Aircraft_5N_NAF`.
-- There are no user-defined indexes.
-- The database contains 4 aircraft, 28 components, 25 faults, 8 schedules, 15 maintenance-history rows, and 12 CRS records.
+- `PRAGMA foreign_keys` was `0`.
+- SQLite was using `delete` journal mode, not WAL.
+- `PRAGMA foreign_key_check` reported 19 violations.
+- 18 `Faults` rows referenced deleted component IDs.
+- 1 `Faults` row referenced a missing `SensorTelemetry` row.
+- 1 `Schedule` row referenced deleted aircraft `Aircraft_5N_NAF`.
+- There were no user-defined indexes.
+- The database contained 4 aircraft, 28 components, 25 faults, 8 schedules, 15 maintenance-history rows, and 12 CRS records.
+
+All of the above have since been remediated - see the Implementation Status
+sections below for the current state (`foreign_keys = ON`, zero FK
+violations, WAL enabled, 12 indexes, 7 schedules after the orphan row was
+archived).
 
 These checks demonstrate that the problems are not only theoretical. The current database already contains broken relationships.
 
@@ -445,11 +450,201 @@ Not yet done (tracked as later phases):
   migration for the 19 existing violations (18 orphaned faults, 1 orphaned
   schedule row). The orphaned rows have been left untouched by Phase 1.
 - Phase 2: missing foreign keys (DB-06), indexes (DB-07), WAL/busy settings
-  (DB-10), `TestingConfig` file-based database (DB-11), uniqueness
-  constraints (DB-08), conditional background updates (DB-09), company
-  isolation enforcement (DB-01/DB-13, Phase 5).
+  (DB-10), `TestingConfig` file-based database (DB-11), conditional
+  background updates (DB-09), company isolation enforcement (DB-01/DB-13,
+  Phase 5).
+
+### Phase 2A: Referential-integrity repair - IMPLEMENTED (2026-08-18)
+
+- **`PRAGMA foreign_keys = ON` is now executed on every connection** - in
+  `app/database.py:get_db_connection()` and in the migration runner's
+  `_connect()`. Existing write paths were reviewed for FK safety before
+  enabling; the PIREP route (`app/routes/flight_log.py`) now validates the
+  aircraft before inserting a report/component/fault.
+- **Migration `005_fk_orphan_repair`** repairs the known orphans against a
+  copy-verified policy:
+  - 18 `Faults.component_id` values pointing at deleted components were
+    archived to the new `FKRepairAudit` table and set to `NULL` (history is
+    preserved, not deleted).
+  - 1 `Faults.telemetry_id` value (`fault_id = 1`) referencing missing
+    telemetry was archived and set to `NULL`.
+  - 1 `Schedule` row (`event_id = 7`, deleted `Aircraft_5N_NAF`) was
+    archived in full (JSON snapshot) and removed, so later FK additions
+    start from a clean slate.
+- **`PRAGMA foreign_key_check` now returns zero rows** on the live database.
+- Row counts are preserved: 4 aircraft, 28 components, 25 faults (18 with
+  NULL component refs), 7 schedules (was 8).
+- **Tests added** in `tests/test_migrations.py` (run with `pytest tests`):
+  fresh-database migration completeness, migration idempotency, upgrade
+  repair of orphan faults/telemetry/schedules with audit-table verification,
+  and FK enforcement on application connections.
+- Backup of the pre-repair database: `camp_system.db.pre-repair-backup.bak`
+  (also covered by `*.bak` in `.gitignore`).
+
+### Phase 2B: Missing foreign keys (DB-06) - IMPLEMENTED (2026-08-18)
+
+- **Migration `006_missing_foreign_keys`** rebuilds the seven tables that
+  lacked constraints (`Schedule`, `MEL_Deferrals`, `DigitalEvidence`,
+  `PartRecords`, `EnvironmentalRiskLog`, `CAMSISGroundingLog`,
+  `IoTToolReadings`). SQLite cannot add FKs via `ALTER TABLE`, so each table
+  is recreated with identical columns plus FK clauses, rows are copied, the
+  old table is dropped, and the new one renamed (AUTOINCREMENT sequences
+  preserved via `sqlite_sequence`).
+- **Delete policy (confirmed product decision):**
+  - `Schedule.aircraft_id` and `MEL_Deferrals.aircraft_id` use
+    `ON DELETE RESTRICT` - aircraft deletion is blocked while linked
+    schedule/MEL records exist.
+  - All audit/history references use `ON DELETE SET NULL` so records
+    survive parent retirement: evidence (aircraft/fault/component),
+    parts (component/aircraft/replaced_by_serial), environmental risk
+    log, CAMSIS grounding (component/limit), IoT readings
+    (tool/task/component/spec), and `MEL_Deferrals.mmel_id`.
+- **Preflight guard:** the migration aborts loudly (rolls back) if any
+  orphan rows are found in the 17 checked relationships, instead of
+  silently copying bad data. The live database passed with zero orphans.
+- **Write paths updated for clean errors instead of 500s:**
+  - `app/routes/workspace.py::remove_aircraft` catches the FK block and
+    flashes an explanation.
+  - Schedule creation (`calendar.py`, `fullcalendar_schedule.py`), MEL
+    deferral creation (`mel.py`), evidence upload
+    (`digital_evidence.py`), part registration (`parts_traceability.py`,
+    `routes_parts.py`), and IoT ingestion (`iot_tools.py`) validate
+    parent IDs before inserting.
+- **`PRAGMA foreign_key_check` returns zero rows** on the live database;
+  row counts are preserved (4 aircraft, 28 components, 25 faults,
+  7 schedules, 6 MEL deferrals, 112 CAMSIS logs).
+- **Tests:** 9 tests in `tests/test_migrations.py` now cover fresh schema
+  FK declarations, invalid child inserts, aircraft-deletion blocking,
+  SET NULL preservation of audit rows, and the 005->006 upgrade path.
+- Backup of the pre-2B database: `camp_system.db.pre-fk2b.bak`.
+
+### Phase 2C: Indexes, WAL, and test isolation (DB-07 / DB-10 / DB-11) - IMPLEMENTED (2026-08-19)
+
+- **Migration `007_query_indexes`** creates 12 indexes, each justified by a
+  real query path verified with `EXPLAIN QUERY PLAN` (all previously full
+  table scans):
+  - `Schedule(start_time)` - calendar/dashboard ordering.
+  - `Schedule(aircraft_id, status)` - kill-switch open-event lookup.
+  - `SensorTelemetry(component_id, sensor_type, recorded_at)` - telemetry
+    pages, ontology reasoner `MAX(recorded_at)`, ghost-data dedup.
+  - `Faults(component_id, resolved, fault_type)` - reasoner active-fault
+    lookup.
+  - `DigitalEvidence(aircraft_id, chain_position)` and
+    `(fault_id, chain_position)` - evidence chain reads (upload + IMDF).
+  - `PartRecords(component_id, status)` - IMDF in-service/removed lists.
+  - `MEL_Deferrals(aircraft_id, status)` - kill-switch MEL close.
+  - `PilotReports(status)` - ghost data + flight log open-report scans.
+  - `MaintenanceDocuments(generated_at)` and
+    `(source_type, source_id)` - document list + dedup lookups.
+  - `Components(aircraft_id)` - CAMSIS/environment component scans.
+- **WAL journal mode (DB-10):** persisted in the database file by migration
+  007's post-commit step (SQLite refuses `journal_mode` changes inside a
+  transaction). Background watchers (kill switch, schedule lifecycle) and
+  request handlers can now read while a writer is active. `synchronous`
+  intentionally stays at the default FULL - durability semantics unchanged.
+- **`busy_timeout` (DB-10):** applied per connection
+  (`PRAGMA busy_timeout = DB_BUSY_TIMEOUT_MS`, 10s) in both
+  `app/database.py::get_db_connection()` and the migration runner, so lock
+  contention waits instead of failing instantly.
+- **TestingConfig is file-backed (DB-11):** `:memory:` gave every
+  `sqlite3.connect()` a separate empty database, so `create_app('testing')`
+  ran migrations on one database and request connections saw nothing.
+  `TestingConfig.DATABASE_PATH` now resolves to `CAMP_DATABASE_PATH` or a
+  temp file. Tests cover shared-schema app factory startup, cross-connection
+  visibility, and isolation between runs.
+- **Verified on live database:** migration 7 recorded, `PRAGMA journal_mode`
+  = `wal`, `PRAGMA integrity_check` = `ok`, `PRAGMA foreign_key_check` = 0
+  rows, row counts unchanged (4 aircraft / 28 components / 7 schedules /
+  6 MEL deferrals), and the previously full-scan hot queries now use the new
+  indexes (`EXPLAIN QUERY PLAN`).
+- **Tests:** 16 total - added 007 index declaration/plan/WAL tests,
+  busy_timeout assertion, and the 3 app-factory tests in
+  `tests/test_app_factory.py`.
+- Backup of the pre-2C database: `camp_system.db.pre-2c.bak`.
+- **Deliberately NOT indexed in 007:** the remaining DB-07 candidates from
+  the findings section. `MaintenanceHistory(aircraft_reg, completion_date)`
+  and `IngestedDocuments(company_id, status)` are deferred because no code
+  path currently filters on those columns (the CBR engine intentionally
+  full-scans history for TF-IDF matching, and the history page is a UNION
+  with no per-aircraft filter). Company-leading indexes on every table are
+  deferred to Phase 5, where they belong alongside DB-01 tenancy
+  enforcement - adding `company_id` indexes now would only slow writes.
+
+### Phase 3A: Uniqueness & idempotency guards (DB-08) - IMPLEMENTED (2026-08-19)
+
+- **Audit:** every duplicate-prone read-then-write path was measured against
+  the live database first. Zero duplicate rows existed in any shape - these
+  constraints are preventive, not repairs.
+  - `Faults` open `(component_id, fault_type)` - 0 duplicates (resolved
+    repeats like `Engine_Overheat_Critical` are legitimate re-detections).
+  - `IngestedDocuments(doc_id)` - 0 duplicates (1:1 with AircraftDocuments).
+  - `MaintenanceDocuments(source_type, source_id)` - 0 duplicates.
+  - `DigitalEvidence(aircraft_id, chain_position)` - 0 duplicates.
+- **Migration `008_uniqueness_constraints`** adds:
+  - `idx_faults_open_component_type`: partial unique index on
+    `Faults(component_id, fault_type) WHERE resolved = 0` - matches the
+    ontology reasoner's dedup query exactly. A resolved fault may
+    legitimately be detected again, and SQLite treats NULL `component_id`
+    as distinct (legacy repaired rows, PIREP airframe faults never
+    collide).
+  - `idx_ingested_documents_doc_id`: unique - one ingestion row per
+    document.
+  - `idx_maintdocs_source_unique`: unique `(source_type, source_id)` -
+    makes the PDF dedup lookup race-safe; replaces the redundant non-unique
+    `idx_maintdocs_source` from 007 (dropped in the same migration).
+  - `idx_evidence_chain_position`: unique `(aircraft_id, chain_position)` -
+    two concurrent uploads can no longer claim the same position and break
+    the tamper-evident hash chain; replaces the redundant non-unique
+    `idx_evidence_aircraft_chain` from 007 (dropped in the same migration).
+- **Write paths hardened** (IntegrityError is treated as "already
+  recorded", never a 500):
+  - `app/ontology_reasoner.py` - concurrent reasoner runs collapse into
+    one open fault.
+  - `app/routes/flight_log.py` - identical duplicate PIREPs still record
+    the pilot report; only the redundant fault row is skipped.
+  - `app/camp_extensions/maintenance_documents.py` - a lost race removes
+    the orphan PDF it just wrote and returns the winner's record.
+  - `app/camp_extensions/digital_evidence.py` - a chain-position collision
+    recomputes the position/hash and retries (3 attempts).
+- **Deliberately NOT constrained:** `DiagnosticJobs` (uuid job_id; repeated
+  "Run Diagnostics" clicks are separate legitimate runs) and the append-only
+  audit logs (`XAILogs`, `PartScanLog`, `ScheduleLifecycleLog`, ...) where
+  duplicate rows are normal.
+- **Fails loudly:** if a future database does contain duplicates, migration
+  008 aborts and rolls back (same policy as 006) - verified by
+  `test_migration_008_fails_loudly_on_preexisting_duplicates`.
+- **Verified on live database:** migration 8 recorded, `PRAGMA
+  integrity_check` = `ok`, `PRAGMA foreign_key_check` = 0 rows, all four
+  unique indexes present, redundant 007 indexes gone, zero duplicate rows,
+  row counts unchanged (4 aircraft / 28 components / 25 faults / 7
+  schedules / 6 MEL deferrals).
+- **Tests:** 22 total - 6 new tests in `tests/test_migrations.py` covering
+  index declaration, per-table rejection of duplicates, legitimate repeats
+  (resolved faults, NULL components, other aircraft), and the loud-failure
+  upgrade path.
+- Backup of the pre-3A database: `camp_system.db.pre-3a.bak`.
+
+Still open for later phases:
+
+- Phase 3/4/5: conditional background updates (DB-09), company isolation
+  enforcement (DB-01/DB-13).
+- `MaintenanceHistory.aircraft_reg` / `CRS_Records.aircraft_reg` remain
+  free-text references; converting them to stable `aircraft_id` is a
+  separate data-model migration (Phase 3).
+- Ingestion parsing/approval idempotency (the remaining DB-08 candidates:
+  `app/ingestion/runner.py` pending rows and
+  `app/ingestion/commit.py` approval atomicity) - deferred because the
+  ingestion pipeline's approval flow is a separate data-model concern that
+  will be reworked with tenancy (Phase 5).
 
 ## Test Plan
+
+*Phases 2A-3A delivered automated coverage in `tests/test_migrations.py` and
+`tests/test_app_factory.py` (fresh migration, idempotency, orphan-repair
+upgrade, FK enforcement, indexes, WAL, busy_timeout, app-factory test
+isolation, uniqueness/idempotency guards). Run with `python -m pytest
+tests`. The manual scenarios below remain relevant for broader regression
+coverage.*
 
 ### Fresh database tests
 
