@@ -1231,6 +1231,54 @@ def _migration_008_uniqueness(conn):
 
 
 # ---------------------------------------------------------------------------
+# Migration 9: stable aircraft references (Phase 3B)
+# ---------------------------------------------------------------------------
+# MaintenanceHistory.aircraft_reg and CRS_Records.aircraft_reg are free-text
+# registrations ('5N-TAJ', '5N_TAJ', ...) with no referential link to the
+# Aircraft table. This migration adds a proper aircraft_id foreign key
+# (audit-reference policy: ON DELETE SET NULL, matching Phase 2B) and
+# backfills it by matching the free-text value against Aircraft.registration
+# (dashes/underscores are treated as equivalent - the live data uses both).
+#
+# Rows whose registration matches no aircraft keep aircraft_reg and get a
+# NULL aircraft_id; they are preserved, not deleted. The free-text column is
+# kept as the human-readable display value.
+#
+# No indexes on the new columns yet: no query currently filters on them (the
+# CBR engine intentionally full-scans history), and tenant-leading indexes
+# belong with Phase 5 (DB-01) enforcement.
+
+def _migration_009_stable_aircraft_refs(conn):
+    _add_column(
+        conn, 'MaintenanceHistory', 'aircraft_id',
+        'TEXT REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL',
+    )
+    _add_column(
+        conn, 'CRS_Records', 'aircraft_id',
+        'TEXT REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL',
+    )
+
+    conn.execute('''
+        UPDATE MaintenanceHistory
+        SET aircraft_id = (
+            SELECT a.aircraft_id FROM Aircraft a
+            WHERE REPLACE(a.registration, '-', '_')
+                = REPLACE(MaintenanceHistory.aircraft_reg, '-', '_')
+            LIMIT 1
+        )
+    ''')
+    conn.execute('''
+        UPDATE CRS_Records
+        SET aircraft_id = (
+            SELECT a.aircraft_id FROM Aircraft a
+            WHERE REPLACE(a.registration, '-', '_')
+                = REPLACE(CRS_Records.aircraft_reg, '-', '_')
+            LIMIT 1
+        )
+    ''')
+
+
+# ---------------------------------------------------------------------------
 # Ordered migration register
 # ---------------------------------------------------------------------------
 
@@ -1248,4 +1296,5 @@ MIGRATIONS = [
         'post_commit': _migration_007_post_commit,
     },
     {'version': 8, 'name': '008_uniqueness_constraints', 'apply': _migration_008_uniqueness},
+    {'version': 9, 'name': '009_stable_aircraft_refs', 'apply': _migration_009_stable_aircraft_refs},
 ]

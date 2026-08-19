@@ -59,25 +59,48 @@ def retrieve_similar_cases(current_fault_desc, aircraft_reg, threshold=None):
     return similar_cases[:Config.CBR_TOP_RESULTS]
 
 
+def _resolve_aircraft_id(conn, aircraft_reg):
+    """Resolve a free-text registration to a stable Aircraft.aircraft_id.
+
+    Dashes and underscores are treated as equivalent ('5N-TAJ' == '5N_TAJ').
+    Returns None when no aircraft matches (the caller records the history
+    row anyway, with a NULL aircraft_id - Phase 3B).
+    """
+    if not aircraft_reg:
+        return None
+    row = conn.execute(
+        '''SELECT aircraft_id FROM Aircraft
+           WHERE REPLACE(registration, '-', '_') = REPLACE(?, '-', '_')
+           LIMIT 1''',
+        (aircraft_reg,)
+    ).fetchone()
+    return row['aircraft_id'] if row else None
+
+
 def log_maintenance_action(aircraft_reg, task_description, digital_signature, conn=None):
     """
     Log a maintenance action to the global history.
-    
+
     Args:
         aircraft_reg (str): Aircraft registration
         task_description (str): Description of maintenance task
         digital_signature (str): Engineer's digital signature
+
+    The stable Aircraft.aircraft_id is resolved and stored alongside the
+    free-text registration (migration 009); unmatched registrations are
+    recorded with a NULL aircraft_id rather than being rejected.
     """
+
+    def _insert(c):
+        c.execute('''
+            INSERT INTO MaintenanceHistory (aircraft_reg, aircraft_id, task_description, signed_off_by)
+            VALUES (?, ?, ?, ?)
+        ''', (aircraft_reg, _resolve_aircraft_id(c, aircraft_reg), task_description, digital_signature))
+
     if conn is not None:
-        conn.execute('''
-            INSERT INTO MaintenanceHistory (aircraft_reg, task_description, signed_off_by)
-            VALUES (?, ?, ?)
-        ''', (aircraft_reg, task_description, digital_signature))
+        _insert(conn)
         return
-    
+
     with get_db() as db_conn:
-        db_conn.execute('''
-            INSERT INTO MaintenanceHistory (aircraft_reg, task_description, signed_off_by)
-            VALUES (?, ?, ?)
-        ''', (aircraft_reg, task_description, digital_signature))
+        _insert(db_conn)
         db_conn.commit()

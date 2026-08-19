@@ -150,11 +150,11 @@ def resolve_fault(fault_id):
 
         crs_cursor = conn.execute('''
             INSERT INTO CRS_Records
-                (aircraft_reg, reference_id, description, signed_off_by,
+                (aircraft_reg, aircraft_id, reference_id, description, signed_off_by,
                  work_order_number, ata_chapter, component_replaced,
                  removed_part_serial, installed_part_serial, evidence_chain_ref)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (ac_reg, f"FAULT-{fault_id}", f"Cleared {fault['fault_type']}", digital_signature,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (ac_reg, comp['aircraft_id'] if comp else None, f"FAULT-{fault_id}", f"Cleared {fault['fault_type']}", digital_signature,
               work_order_number, ata_chapter, 1 if component_replaced else 0,
               removed_part_serial, installed_part_serial, comp['aircraft_id'] if comp else None))
         crs_id = crs_cursor.lastrowid

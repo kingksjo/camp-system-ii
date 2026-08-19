@@ -50,11 +50,15 @@ def scan_and_fire_reminders():
         ''', (now_str,)).fetchall()
 
         for ev in due:
-            conn.execute(
-                'INSERT INTO ScheduleReminders (record_id, title, aircraft_id, start_time) VALUES (?, ?, ?, ?)',
+            # INSERT OR IGNORE: record_id is the primary key, so a reminder
+            # fired by a concurrent scan (or a re-scan) is a no-op, not an
+            # IntegrityError (DB-09).
+            cur = conn.execute(
+                'INSERT OR IGNORE INTO ScheduleReminders (record_id, title, aircraft_id, start_time) VALUES (?, ?, ?, ?)',
                 (ev['record_id'], ev['title'], ev['aircraft_id'], ev['start_time'])
             )
-            fired.append(ev['record_id'])
+            if cur.rowcount:
+                fired.append(ev['record_id'])
 
         conn.commit()
 
@@ -75,10 +79,18 @@ def scan_and_expire_stale():
         ''', (cutoff,)).fetchall()
 
         for ev in stale:
-            conn.execute(
-                "UPDATE Schedule SET status = 'Expired-AutoRemoved' WHERE rowid = ?",
+            # Conditional update: only expire if the event is STILL open. A
+            # manual sign-off racing this watcher between the SELECT above
+            # and this UPDATE must not be overwritten with a stale expiry,
+            # and the lifecycle log must not claim an expiry that did not
+            # happen (DB-09).
+            cur = conn.execute(
+                "UPDATE Schedule SET status = 'Expired-AutoRemoved' "
+                "WHERE rowid = ? AND (status = 'Scheduled' OR status IS NULL)",
                 (ev['record_id'],)
             )
+            if cur.rowcount == 0:
+                continue
             conn.execute(
                 'INSERT INTO ScheduleLifecycleLog (record_id, title, action, reason) VALUES (?, ?, ?, ?)',
                 (ev['record_id'], ev['title'], 'Expired',
@@ -120,6 +132,12 @@ def _watcher_loop():
 def start_watcher():
     global _watcher_thread
     if _watcher_thread and _watcher_thread.is_alive():
+        return
+    if _stop_event.is_set():
+        # Intentionally stopped (e.g. under the test harness) - do not
+        # restart. Without this guard a create_app() call during tests would
+        # spin a fresh thread whose first scan could hit a different test's
+        # database.
         return
     ensure_lifecycle_schema()
     _stop_event.clear()

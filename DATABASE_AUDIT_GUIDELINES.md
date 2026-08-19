@@ -626,25 +626,88 @@ Not yet done (tracked as later phases):
 
 Still open for later phases:
 
-- Phase 3/4/5: conditional background updates (DB-09), company isolation
-  enforcement (DB-01/DB-13).
-- `MaintenanceHistory.aircraft_reg` / `CRS_Records.aircraft_reg` remain
-  free-text references; converting them to stable `aircraft_id` is a
-  separate data-model migration (Phase 3).
+- Phase 5: company isolation enforcement (DB-01/DB-13).
 - Ingestion parsing/approval idempotency (the remaining DB-08 candidates:
   `app/ingestion/runner.py` pending rows and
   `app/ingestion/commit.py` approval atomicity) - deferred because the
   ingestion pipeline's approval flow is a separate data-model concern that
   will be reworked with tenancy (Phase 5).
 
+### Phase 4: Conditional background-writer updates (DB-09) - IMPLEMENTED (2026-08-19)
+
+The watchers SELECT open rows and later UPDATE them. If a user signs off
+between the two statements, the unconditional UPDATE overwrote the newer
+status and the audit log claimed an action that never happened. All four
+writers from the finding were reviewed:
+
+- **`app/camp_extensions/kill_switch.py` (fixed):** the Schedule and
+  MEL_Deferrals auto-close UPDATEs are now conditional
+  (`WHERE rowid = ? AND (status = 'Scheduled' OR status IS NULL)` /
+  `WHERE deferral_id = ? AND status = 'Active'`), the audit-log insert only
+  runs when `rowcount > 0`, and the processed-CRS marker uses
+  `INSERT OR IGNORE` so two concurrent scans cannot crash on the primary
+  key.
+- **`app/camp_extensions/schedule_lifecycle.py` (fixed):** the 2-day expiry
+  UPDATE is now conditional on the row still being open, the lifecycle log
+  only records actual expiries (`rowcount > 0`), and reminder firing uses
+  `INSERT OR IGNORE` (record_id is the primary key) so concurrent or repeat
+  scans are no-ops instead of IntegrityErrors.
+- **`app/diagnostics_jobs.py` (no change needed):** each background worker
+  owns its `DiagnosticJobs` row by uuid job_id - no user-facing state is
+  ever overwritten, so there is no race to guard.
+- **`app/camp_extensions/hitl_listener.py` (no change needed):** a pure
+  producer - INSERTs into `SensorTelemetry`/`HITLPacketLog` and its own
+  `HITLListenerConfig` row; it never mutates rows a user can see.
+- **Tests:** 5 new tests in `tests/test_background_writers.py` covering
+  expiry skipping signed-off/cancelled events, single-fire reminders,
+  kill-switch open-events-only cancellation, and two-thread concurrent scans
+  (which log each action exactly once thanks to SQLite's single-writer
+  serialization). Full suite: 27 tests.
+- No migration or live-database change was required - this phase is
+  code-only.
+
+### Phase 3B: Stable aircraft references (Phase 3 of the roadmap) - IMPLEMENTED (2026-08-19)
+
+`MaintenanceHistory.aircraft_reg` and `CRS_Records.aircraft_reg` were
+free-text registrations in two formats (`5N-TAJ` with dashes, `5N_TAJ` with
+underscores) with no referential link to the Aircraft table - the same
+free-text values the kill switch had to guess from.
+
+- **Migration `009_stable_aircraft_refs`** adds an `aircraft_id` column to
+  both tables (`REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL`,
+  matching the Phase 2B audit-reference policy) and backfills it by matching
+  the free-text value against `Aircraft.registration`, treating dashes and
+  underscores as equivalent. Rows that match no aircraft keep their
+  free-text registration with a NULL `aircraft_id` - preserved, not
+  deleted. The free-text column stays as the human-readable display value.
+- **Write paths record the stable id:**
+  - `app/cbr_engine.py::log_maintenance_action` (used by calendar sign-off,
+    fault resolution, due-list completion, and MEL clearance) resolves and
+    stores `aircraft_id` via a shared `_resolve_aircraft_id()` helper.
+  - `app/routes/fault_resolution.py` stores `aircraft_id` on CRS creation.
+  - `app/camp_extensions/kill_switch.py` now prefers `crs['aircraft_id']`
+    over its old string-guess (the guess remains as a fallback for rows
+    created before this migration).
+- **Verified on live database:** migration 9 recorded, all 15 history rows
+  and 12 CRS rows backfilled to the correct aircraft (0 unlinked), `PRAGMA
+  integrity_check` = `ok`, `PRAGMA foreign_key_check` = 0 rows.
+- **Tests:** 4 new tests in `tests/test_migrations.py` covering the upgrade
+  backfill (dash + underscore + unmatched), FK declarations, SET NULL on
+  aircraft deletion, and `log_maintenance_action` resolution. Full suite:
+  31 tests.
+- No indexes on the new columns yet - no query filters on them today, and
+  tenant-leading indexes belong with Phase 5 (DB-01) enforcement.
+- Backup of the pre-3B database: `camp_system.db.pre-3b.bak`.
+
 ## Test Plan
 
-*Phases 2A-3A delivered automated coverage in `tests/test_migrations.py` and
-`tests/test_app_factory.py` (fresh migration, idempotency, orphan-repair
-upgrade, FK enforcement, indexes, WAL, busy_timeout, app-factory test
-isolation, uniqueness/idempotency guards). Run with `python -m pytest
-tests`. The manual scenarios below remain relevant for broader regression
-coverage.*
+*Phases 2A-3B/4 delivered automated coverage in `tests/test_migrations.py`,
+`tests/test_app_factory.py`, and `tests/test_background_writers.py` (fresh
+migration, idempotency, orphan-repair upgrade, FK enforcement, indexes, WAL,
+busy_timeout, app-factory test isolation, uniqueness/idempotency guards,
+conditional background-writer updates, stable aircraft references). Run with
+`python -m pytest tests`. The manual scenarios below remain relevant for
+broader regression coverage.*
 
 ### Fresh database tests
 

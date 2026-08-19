@@ -44,7 +44,7 @@ def test_fresh_database_migrates_fully(db_path):
         versions = {r[0] for r in conn.execute("SELECT version FROM schema_migrations").fetchall()}
     finally:
         conn.close()
-    assert versions == {1, 2, 3, 4, 5, 6, 7, 8}
+    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
     tables = _table_names(str(db_path))
     for required in (
@@ -66,7 +66,7 @@ def test_run_migrations_is_idempotent(db_path):
         count = conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0]
     finally:
         conn.close()
-    assert count == 8
+    assert count == 9
 
 
 def test_upgrade_repairs_known_orphans(db_path, monkeypatch):
@@ -137,7 +137,7 @@ def test_upgrade_repairs_known_orphans(db_path, monkeypatch):
             "SELECT version FROM schema_migrations"
         ).fetchall()
     }
-    assert versions == {1, 2, 3, 4, 5, 6, 7, 8}
+    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 
 def test_fresh_database_declares_missing_foreign_keys(db_path):
@@ -608,3 +608,128 @@ def test_migration_008_fails_loudly_on_preexisting_duplicates(db_path, monkeypat
         ).fetchall()
     }
     assert versions == {1, 2, 3, 4, 5, 6, 7}
+
+
+def test_migration_009_backfills_stable_aircraft_ids(db_path, monkeypatch):
+    full_migrations = migrations_module.MIGRATIONS
+    monkeypatch.setattr(migrations_module, "MIGRATIONS", full_migrations[:8])
+    migrations_module.run_migrations()
+
+    raw = sqlite3.connect(str(db_path))
+    raw.execute("INSERT INTO Aircraft (aircraft_id, registration) VALUES ('Aircraft_5N_TAJ', '5N-TAJ')")
+    raw.execute("INSERT INTO Aircraft (aircraft_id, registration) VALUES ('Aircraft_5N_MUM', '5N-MUM')")
+    raw.execute(
+        "INSERT INTO MaintenanceHistory (aircraft_reg, task_description) "
+        "VALUES ('5N-TAJ', 'dash format'), ('5N_TAJ', 'underscore format'), ('9X-NOPE', 'unmatched')"
+    )
+    raw.execute(
+        "INSERT INTO CRS_Records (aircraft_reg, reference_id) "
+        "VALUES ('5N_MUM', 'FAULT-1'), ('5N-MUM', 'FAULT-2'), ('9X-NOPE', 'FAULT-3')"
+    )
+    raw.commit()
+    raw.close()
+
+    monkeypatch.setattr(migrations_module, "MIGRATIONS", full_migrations)
+    migrations_module.run_migrations()
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        history = conn.execute(
+            "SELECT aircraft_reg, aircraft_id FROM MaintenanceHistory ORDER BY log_id"
+        ).fetchall()
+        assert [tuple(r) for r in history] == [
+            ('5N-TAJ', 'Aircraft_5N_TAJ'),
+            ('5N_TAJ', 'Aircraft_5N_TAJ'),
+            ('9X-NOPE', None),
+        ]
+
+        crs = conn.execute(
+            "SELECT aircraft_reg, aircraft_id FROM CRS_Records ORDER BY id"
+        ).fetchall()
+        assert [tuple(r) for r in crs] == [
+            ('5N_MUM', 'Aircraft_5N_MUM'),
+            ('5N-MUM', 'Aircraft_5N_MUM'),
+            ('9X-NOPE', None),
+        ]
+    finally:
+        conn.close()
+
+    assert _check_fk(str(db_path)) == []
+
+
+def test_migration_009_declares_aircraft_fk(db_path):
+    migrations_module.run_migrations()
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        schemas = {
+            r[0]: r[1]
+            for r in conn.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert "REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL" in schemas["MaintenanceHistory"]
+    assert "REFERENCES Aircraft(aircraft_id) ON DELETE SET NULL" in schemas["CRS_Records"]
+
+
+def test_aircraft_delete_keeps_history_rows(db_path):
+    migrations_module.run_migrations()
+
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO Aircraft (aircraft_id, registration) VALUES ('Aircraft_X', 'X-REG')")
+        conn.execute(
+            "INSERT INTO MaintenanceHistory (aircraft_reg, aircraft_id, task_description) "
+            "VALUES ('X-REG', 'Aircraft_X', 'work')"
+        )
+        conn.execute(
+            "INSERT INTO CRS_Records (aircraft_reg, aircraft_id, reference_id) "
+            "VALUES ('X-REG', 'Aircraft_X', 'FAULT-1')"
+        )
+        conn.execute("DELETE FROM Aircraft WHERE aircraft_id = 'Aircraft_X'")
+
+        history = conn.execute(
+            "SELECT aircraft_id FROM MaintenanceHistory"
+        ).fetchone()
+        assert history[0] is None
+
+        crs = conn.execute("SELECT aircraft_id FROM CRS_Records").fetchone()
+        assert crs[0] is None
+    finally:
+        conn.close()
+
+
+def test_log_maintenance_action_records_stable_aircraft_id(db_path):
+    from app.cbr_engine import log_maintenance_action
+
+    migrations_module.run_migrations()
+
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO Aircraft (aircraft_id, registration) VALUES ('Aircraft_5N_TAJ', '5N-TAJ')")
+        conn.execute("INSERT INTO Aircraft (aircraft_id, registration) VALUES ('Aircraft_5N_MUM', '5N-MUM')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    log_maintenance_action('5N-TAJ', 'task one', 'sig1')
+    log_maintenance_action('5N_MUM', 'task two', 'sig2')
+    log_maintenance_action('ZZ-UNKNOWN', 'task three', 'sig3')
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT aircraft_reg, aircraft_id, task_description FROM MaintenanceHistory ORDER BY log_id"
+        ).fetchall()
+        assert [tuple(r) for r in rows] == [
+            ('5N-TAJ', 'Aircraft_5N_TAJ', 'task one'),
+            ('5N_MUM', 'Aircraft_5N_MUM', 'task two'),
+            ('ZZ-UNKNOWN', None, 'task three'),
+        ]
+    finally:
+        conn.close()

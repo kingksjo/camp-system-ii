@@ -51,7 +51,9 @@ def run_kill_switch_scan():
         ''').fetchall()
 
         for crs in new_crs:
-            aircraft_id_guess = f"Aircraft_{crs['aircraft_reg'].replace('-', '_')}"
+            # Prefer the stable aircraft_id when the row has one (migration
+            # 009); fall back to the legacy registration-guess for old rows.
+            aircraft_id_guess = crs['aircraft_id'] or f"Aircraft_{crs['aircraft_reg'].replace('-', '_')}"
             crs_keywords = _keywords_from(crs['reference_id']) | _keywords_from(crs['description'])
 
             # 1) Cancel matching open Schedule entries for this aircraft
@@ -67,10 +69,18 @@ def run_kill_switch_scan():
                 matched = (ev_ref and ev_ref == crs['reference_id']) or (crs_keywords & ev_keywords)
 
                 if matched:
-                    conn.execute(
-                        "UPDATE Schedule SET status = 'Cancelled-KillSwitch' WHERE rowid = ?",
+                    # Conditional update: only cancel if the event is STILL
+                    # open. A manual sign-off or lifecycle expiry racing this
+                    # watcher between the SELECT above and this UPDATE must
+                    # not be overwritten, and the audit log must not claim a
+                    # cancellation that did not happen (DB-09).
+                    cur = conn.execute(
+                        "UPDATE Schedule SET status = 'Cancelled-KillSwitch' "
+                        "WHERE rowid = ? AND (status = 'Scheduled' OR status IS NULL)",
                         (ev['record_id'],)
                     )
+                    if cur.rowcount == 0:
+                        continue
                     reason = f"CRS {crs['reference_id']} released aircraft {crs['aircraft_reg']}; matched hangar slot '{ev['title']}'."
                     conn.execute(
                         "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason) "
@@ -86,10 +96,13 @@ def run_kill_switch_scan():
             ).fetchall()
             for mel in open_mels:
                 if crs_keywords & _keywords_from(mel['item_description']):
-                    conn.execute(
-                        "UPDATE MEL_Deferrals SET status = 'Cleared-KillSwitch' WHERE deferral_id = ?",
+                    cur = conn.execute(
+                        "UPDATE MEL_Deferrals SET status = 'Cleared-KillSwitch' "
+                        "WHERE deferral_id = ? AND status = 'Active'",
                         (mel['deferral_id'],)
                     )
+                    if cur.rowcount == 0:
+                        continue
                     reason = f"CRS {crs['reference_id']} cleared MEL deferral: {mel['item_description']}."
                     conn.execute(
                         "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason) "
@@ -99,7 +112,7 @@ def run_kill_switch_scan():
                     actions.append(reason)
 
             conn.execute(
-                "INSERT INTO KillSwitchProcessedCRS (crs_id) VALUES (?)", (crs['id'],)
+                "INSERT OR IGNORE INTO KillSwitchProcessedCRS (crs_id) VALUES (?)", (crs['id'],)
             )
 
         conn.commit()
@@ -120,6 +133,12 @@ def start_watcher():
     """Start the background CRS watcher once at app boot. Idempotent."""
     global _watcher_thread
     if _watcher_thread and _watcher_thread.is_alive():
+        return
+    if _stop_event.is_set():
+        # Intentionally stopped (e.g. under the test harness) - do not
+        # restart. Without this guard a create_app() call during tests would
+        # spin a fresh thread whose first scan could hit a different test's
+        # database.
         return
     ensure_ks_schema()
     _stop_event.clear()
