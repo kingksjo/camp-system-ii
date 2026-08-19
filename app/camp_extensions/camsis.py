@@ -17,6 +17,7 @@ would accept without a model in the loop at all.
 """
 from datetime import datetime
 from app.database import get_db
+from app.auth import get_current_company_id
 
 DUE_SOON_MARGIN_PCT = 10.0
 
@@ -53,21 +54,23 @@ def _limit_for(conn, component_type, category):
     ).fetchone()
 
 
-def compute_grounding(aircraft_id=None):
+def compute_grounding(aircraft_id=None, company_id=None):
     """
     Deterministically evaluate every component (optionally scoped to one
     aircraft) against CAMSISLimits. Returns a list of grounded results and
     logs each computation to CAMSISGroundingLog for audit.
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_camsis_schema()
     results = []
 
     with get_db() as conn:
-        query = 'SELECT * FROM Components'
-        params = ()
+        query = 'SELECT * FROM Components WHERE company_id = ?'
+        params = (company_id,)
         if aircraft_id:
-            query += ' WHERE aircraft_id = ?'
-            params = (aircraft_id,)
+            query += ' AND aircraft_id = ?'
+            params = (company_id, aircraft_id)
         components = conn.execute(query, params).fetchall()
 
         for comp in components:
@@ -81,9 +84,9 @@ def compute_grounding(aircraft_id=None):
                 status = _classify(remaining_cycles, max_csn)
                 margin_pct = round((remaining_cycles / max_csn) * 100.0, 1)
                 conn.execute(
-                    'INSERT INTO CAMSISGroundingLog (component_id, limit_category, used_value, limit_value, remaining, margin_pct, status) '
-                    'VALUES (?, "Cycles", ?, ?, ?, ?, ?)',
-                    (comp['component_id'], csn, max_csn, remaining_cycles, margin_pct, status)
+                    'INSERT INTO CAMSISGroundingLog (component_id, limit_category, used_value, limit_value, remaining, margin_pct, status, company_id) '
+                    'VALUES (?, "Cycles", ?, ?, ?, ?, ?, ?)',
+                    (comp['component_id'], csn, max_csn, remaining_cycles, margin_pct, status, company_id)
                 )
                 results.append({
                     'component_id': comp['component_id'], 'component_type': comp_type,
@@ -98,7 +101,7 @@ def compute_grounding(aircraft_id=None):
                 used_hours = comp['total_flight_hours']
                 if used_hours is None:
                     ac = conn.execute(
-                        'SELECT total_flight_hours FROM Aircraft WHERE aircraft_id = ?', (comp['aircraft_id'],)
+                        'SELECT total_flight_hours FROM Aircraft WHERE aircraft_id = ? AND company_id = ?', (comp['aircraft_id'], company_id)
                     ).fetchone()
                     used_hours = ac['total_flight_hours'] if ac else 0.0
                 limit_value = hours_limit_row['limit_value']
@@ -106,10 +109,10 @@ def compute_grounding(aircraft_id=None):
                 status = _classify(remaining_hours, limit_value)
                 margin_pct = round((remaining_hours / limit_value) * 100.0, 1)
                 conn.execute(
-                    'INSERT INTO CAMSISGroundingLog (component_id, limit_id, limit_category, used_value, limit_value, remaining, margin_pct, status) '
-                    'VALUES (?, ?, "Hours", ?, ?, ?, ?, ?)',
+                    'INSERT INTO CAMSISGroundingLog (component_id, limit_id, limit_category, used_value, limit_value, remaining, margin_pct, status, company_id) '
+                    'VALUES (?, ?, "Hours", ?, ?, ?, ?, ?, ?)',
                     (comp['component_id'], hours_limit_row['limit_id'], used_hours, limit_value,
-                     remaining_hours, margin_pct, status)
+                     remaining_hours, margin_pct, status, company_id)
                 )
                 results.append({
                     'component_id': comp['component_id'], 'component_type': comp_type,

@@ -5,6 +5,7 @@ Tracks tools, calibration status, and checkout history.
 from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime
 from app.database import get_db
+from app.auth import get_current_company_id
 
 bp = Blueprint('tool_crib', __name__)
 
@@ -12,11 +13,16 @@ bp = Blueprint('tool_crib', __name__)
 @bp.route('/tool_crib')
 def tool_crib():
     """Display tool crib inventory with calibration status."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        raw_tools = conn.execute('SELECT * FROM ToolCrib').fetchall()
+        raw_tools = conn.execute(
+            'SELECT * FROM ToolCrib WHERE company_id = ?', (company_id,)
+        ).fetchall()
         
         try:
-            engineers = conn.execute('SELECT * FROM Engineers').fetchall()
+            engineers = conn.execute(
+                'SELECT * FROM Engineers WHERE company_id = ?', (company_id,)
+            ).fetchall()
         except Exception:
             engineers = []
     
@@ -56,18 +62,20 @@ def tool_crib():
 def checkout_tool(tool_id):
     """Check out a tool to an engineer."""
     emp_id = request.form.get('engineer_id')
+    company_id = get_current_company_id()
     
     with get_db() as conn:
         engineer = conn.execute(
-            'SELECT full_name FROM Engineers WHERE emp_id = ?',
-            (emp_id,)
+            'SELECT full_name FROM Engineers WHERE emp_id = ? AND company_id = ?',
+            (emp_id, company_id)
         ).fetchone()
         
         eng_name = engineer['full_name'] if engineer else "Unknown Engineer"
         
         conn.execute(
-            'UPDATE ToolCrib SET status = "Checked Out", checked_out_to = ? WHERE tool_id = ?',
-            (eng_name, tool_id)
+            'UPDATE ToolCrib SET status = "Checked Out", checked_out_to = ? '
+            'WHERE tool_id = ? AND company_id = ?',
+            (eng_name, tool_id, company_id)
         )
         conn.commit()
     
@@ -77,10 +85,12 @@ def checkout_tool(tool_id):
 @bp.route('/checkin_tool/<tool_id>', methods=['POST'])
 def checkin_tool(tool_id):
     """Check in a tool."""
+    company_id = get_current_company_id()
     with get_db() as conn:
         conn.execute(
-            'UPDATE ToolCrib SET status = "Available", checked_out_to = "" WHERE tool_id = ?',
-            (tool_id,)
+            'UPDATE ToolCrib SET status = "Available", checked_out_to = "" '
+            'WHERE tool_id = ? AND company_id = ?',
+            (tool_id, company_id)
         )
         conn.commit()
     
@@ -92,13 +102,14 @@ def add_tool():
     """Add a new tool to the crib."""
     with get_db() as conn:
         conn.execute(
-            'INSERT INTO ToolCrib (tool_id, tool_name, category, calibration_due, status) '
-            'VALUES (?, ?, ?, ?, "Available")',
+            'INSERT INTO ToolCrib (tool_id, tool_name, category, calibration_due, status, company_id) '
+            'VALUES (?, ?, ?, ?, "Available", ?)',
             (
                 request.form['tool_id'],
                 request.form['tool_name'],
                 request.form['category'],
-                request.form['calibration_due']
+                request.form['calibration_due'],
+                get_current_company_id()
             )
         )
         conn.commit()
@@ -109,8 +120,12 @@ def add_tool():
 @bp.route('/remove_tool/<tool_id>', methods=['POST'])
 def remove_tool(tool_id):
     """Remove a tool from the crib."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        conn.execute('DELETE FROM ToolCrib WHERE tool_id = ?', (tool_id,))
+        conn.execute(
+            'DELETE FROM ToolCrib WHERE tool_id = ? AND company_id = ?',
+            (tool_id, company_id)
+        )
         conn.commit()
     
     return redirect(url_for('tool_crib.tool_crib'))
@@ -119,10 +134,11 @@ def remove_tool(tool_id):
 @bp.route('/quarantine_tool/<tool_id>', methods=['POST'])
 def quarantine_tool(tool_id):
     """Mark a tool as quarantined."""
+    company_id = get_current_company_id()
     with get_db() as conn:
         conn.execute(
-            'UPDATE ToolCrib SET status = "Quarantined" WHERE tool_id = ?',
-            (tool_id,)
+            'UPDATE ToolCrib SET status = "Quarantined" WHERE tool_id = ? AND company_id = ?',
+            (tool_id, company_id)
         )
         conn.commit()
     
@@ -133,11 +149,13 @@ def quarantine_tool(tool_id):
 def update_tool(tool_id):
     """Update tool calibration date."""
     new_date = request.form['new_cal_date']
+    company_id = get_current_company_id()
     
     with get_db() as conn:
         conn.execute(
-            'UPDATE ToolCrib SET calibration_due = ?, status = "Available" WHERE tool_id = ?',
-            (new_date, tool_id)
+            'UPDATE ToolCrib SET calibration_due = ?, status = "Available" '
+            'WHERE tool_id = ? AND company_id = ?',
+            (new_date, tool_id, company_id)
         )
         conn.commit()
     

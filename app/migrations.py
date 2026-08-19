@@ -1279,6 +1279,194 @@ def _migration_009_stable_aircraft_refs(conn):
 
 
 # ---------------------------------------------------------------------------
+# Migration 10: company ownership on every operational table (Phase 5, DB-01)
+# ---------------------------------------------------------------------------
+# DB-01: most operational tables had no company_id column, so an
+# authenticated user could read/mutate another company's records by ID. This
+# migration gives every operational table a company_id column (INTEGER NOT
+# NULL DEFAULT 1 - the seeded single company - so legacy rows are never
+# dropped), backfills ownership from the nearest owning row, and adds
+# company-leading indexes.
+#
+# Ownership derivation:
+#   aircraft_id  -> Aircraft.company_id          Components, Schedule,
+#                                                  MEL_Deferrals, PilotReports,
+#                                                  DigitalEvidence, PartRecords,
+#                                                  EnvironmentalRiskLog,
+#                                                  DiagnosticJobs,
+#                                                  ScheduleReminders,
+#                                                  AircraftEnvironmentContext
+#   aircraft_id / registration (dash==underscore) MaintenanceHistory, CRS_Records
+#   registration (dash==underscore)              MaintenanceDocuments
+#   component_id -> Components.company_id        SensorTelemetry, XAILogs,
+#                                                  CAMSISGroundingLog,
+#                                                  IoTToolReadings, HITLPacketLog
+#   crs_id -> CRS_Records.company_id             KillSwitchProcessedCRS,
+#                                                  KillSwitchLog
+#   part_serial -> PartRecords.company_id        PartScanLog
+#   record_id -> Schedule.company_id             ScheduleLifecycleLog
+#   extraction_id -> PendingExtractions.company_id ExtractionAuditLog
+#   component_id / fault_id                      MaintenanceRecords,
+#                                                  LegalSignOffs
+#   (no link - shared reference/config data)     MaintenanceTasks, Directives,
+#                                                  SWRLRules, CAMSISLimits,
+#                                                  TorqueSpecs,
+#                                                  HITLListenerConfig,
+#                                                  GhostDataLog
+#
+# Rows whose owner cannot be resolved fall back to the seeded company (1);
+# they are preserved, never deleted. App code (app/tenancy.py + every route)
+# now filters on company_id; see DATABASE_AUDIT_GUIDELINES.md Phase 5.
+
+_TENANCY_REFERENCE_TABLES = (
+    'MaintenanceTasks', 'Directives', 'SWRLRules', 'CAMSISLimits',
+    'TorqueSpecs', 'HITLListenerConfig', 'GhostDataLog',
+)
+
+_TENANCY_AIRCRAFT_LINKED_TABLES = (
+    'Components', 'Schedule', 'MEL_Deferrals', 'PilotReports',
+    'DigitalEvidence', 'PartRecords', 'EnvironmentalRiskLog',
+    'DiagnosticJobs', 'ScheduleReminders', 'AircraftEnvironmentContext',
+)
+
+_TENANCY_COMPONENT_LINKED_TABLES = (
+    'Faults', 'SensorTelemetry', 'XAILogs', 'CAMSISGroundingLog',
+    'IoTToolReadings', 'HITLPacketLog',
+)
+
+_TENANCY_CRS_LINKED_TABLES = ('KillSwitchProcessedCRS', 'KillSwitchLog')
+
+_TENANCY_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_components_company_aircraft "
+    "ON Components(company_id, aircraft_id)",
+    "CREATE INDEX IF NOT EXISTS idx_schedule_company_start "
+    "ON Schedule(company_id, start_time)",
+    "CREATE INDEX IF NOT EXISTS idx_faults_company_resolved "
+    "ON Faults(company_id, resolved)",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_company_component "
+    "ON SensorTelemetry(company_id, component_id)",
+    "CREATE INDEX IF NOT EXISTS idx_history_company_aircraft "
+    "ON MaintenanceHistory(company_id, aircraft_id)",
+    "CREATE INDEX IF NOT EXISTS idx_crs_company ON CRS_Records(company_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mel_company_status "
+    "ON MEL_Deferrals(company_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_pilotreports_company_status "
+    "ON PilotReports(company_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_partrecords_company_aircraft "
+    "ON PartRecords(company_id, aircraft_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_company_aircraft "
+    "ON DigitalEvidence(company_id, aircraft_id)",
+    "CREATE INDEX IF NOT EXISTS idx_maintdocs_company "
+    "ON MaintenanceDocuments(company_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ingesteddocs_company_status "
+    "ON IngestedDocuments(company_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_pendingextractions_company_status "
+    "ON PendingExtractions(company_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_engineers_company ON Engineers(company_id)",
+    "CREATE INDEX IF NOT EXISTS idx_aircraft_company ON Aircraft(company_id)",
+]
+
+
+def _migration_010_company_tenancy(conn):
+    for table in _TENANCY_REFERENCE_TABLES + _TENANCY_AIRCRAFT_LINKED_TABLES + \
+            _TENANCY_COMPONENT_LINKED_TABLES + _TENANCY_CRS_LINKED_TABLES + \
+            ('MaintenanceHistory', 'CRS_Records', 'MaintenanceDocuments',
+             'PartScanLog', 'ScheduleLifecycleLog', 'ExtractionAuditLog',
+             'MaintenanceRecords', 'LegalSignOffs'):
+        _add_column(
+            conn, table, 'company_id',
+            f'INTEGER NOT NULL DEFAULT {DEFAULT_COMPANY_ID}',
+        )
+
+    # Aircraft-linked tables: inherit from Aircraft.company_id.
+    for table in _TENANCY_AIRCRAFT_LINKED_TABLES:
+        conn.execute(f'''
+            UPDATE {table} SET company_id = COALESCE(
+                (SELECT a.company_id FROM Aircraft a
+                 WHERE a.aircraft_id = {table}.aircraft_id),
+                {DEFAULT_COMPANY_ID})
+        ''')
+
+    # MaintenanceHistory / CRS_Records: prefer the stable aircraft_id
+    # (migration 009), then the free-text registration, then the default.
+    for table in ('MaintenanceHistory', 'CRS_Records'):
+        conn.execute(f'''
+            UPDATE {table} SET company_id = COALESCE(
+                (SELECT a.company_id FROM Aircraft a
+                 WHERE a.aircraft_id = {table}.aircraft_id),
+                (SELECT a.company_id FROM Aircraft a
+                 WHERE REPLACE(a.registration, '-', '_')
+                       = REPLACE({table}.aircraft_reg, '-', '_')
+                 LIMIT 1),
+                {DEFAULT_COMPANY_ID})
+        ''')
+
+    # MaintenanceDocuments only carries a free-text registration.
+    conn.execute(f'''
+        UPDATE MaintenanceDocuments SET company_id = COALESCE(
+            (SELECT a.company_id FROM Aircraft a
+             WHERE REPLACE(a.registration, '-', '_')
+                   = REPLACE(MaintenanceDocuments.aircraft_reg, '-', '_')
+             LIMIT 1),
+            {DEFAULT_COMPANY_ID})
+    ''')
+
+    # Component-linked tables: inherit from Components.company_id (which was
+    # backfilled just above).
+    for table in _TENANCY_COMPONENT_LINKED_TABLES:
+        conn.execute(f'''
+            UPDATE {table} SET company_id = COALESCE(
+                (SELECT c.company_id FROM Components c
+                 WHERE c.component_id = {table}.component_id),
+                {DEFAULT_COMPANY_ID})
+        ''')
+
+    # CRS-linked tables: inherit from CRS_Records.company_id.
+    for table in _TENANCY_CRS_LINKED_TABLES:
+        conn.execute(f'''
+            UPDATE {table} SET company_id = COALESCE(
+                (SELECT cr.company_id FROM CRS_Records cr
+                 WHERE cr.id = {table}.crs_id),
+                {DEFAULT_COMPANY_ID})
+        ''')
+
+    # Part-linked, schedule-linked and extraction-linked audit tables.
+    conn.execute(f'''
+        UPDATE PartScanLog SET company_id = COALESCE(
+            (SELECT p.company_id FROM PartRecords p
+             WHERE p.part_serial = PartScanLog.part_serial),
+            {DEFAULT_COMPANY_ID})
+    ''')
+    conn.execute(f'''
+        UPDATE ScheduleLifecycleLog SET company_id = COALESCE(
+            (SELECT s.company_id FROM Schedule s
+             WHERE s.event_id = ScheduleLifecycleLog.record_id),
+            {DEFAULT_COMPANY_ID})
+    ''')
+    conn.execute(f'''
+        UPDATE ExtractionAuditLog SET company_id = COALESCE(
+            (SELECT p.company_id FROM PendingExtractions p
+             WHERE p.extraction_id = ExtractionAuditLog.extraction_id),
+            {DEFAULT_COMPANY_ID})
+    ''')
+    conn.execute(f'''
+        UPDATE MaintenanceRecords SET company_id = COALESCE(
+            (SELECT c.company_id FROM Components c
+             WHERE c.component_id = MaintenanceRecords.component_id),
+            {DEFAULT_COMPANY_ID})
+    ''')
+    conn.execute(f'''
+        UPDATE LegalSignOffs SET company_id = COALESCE(
+            (SELECT f.company_id FROM Faults f
+             WHERE f.fault_id = LegalSignOffs.fault_id),
+            {DEFAULT_COMPANY_ID})
+    ''')
+
+    for ddl in _TENANCY_INDEXES:
+        conn.execute(ddl)
+
+
+# ---------------------------------------------------------------------------
 # Ordered migration register
 # ---------------------------------------------------------------------------
 
@@ -1297,4 +1485,5 @@ MIGRATIONS = [
     },
     {'version': 8, 'name': '008_uniqueness_constraints', 'apply': _migration_008_uniqueness},
     {'version': 9, 'name': '009_stable_aircraft_refs', 'apply': _migration_009_stable_aircraft_refs},
+    {'version': 10, 'name': '010_company_tenancy', 'apply': _migration_010_company_tenancy},
 ]

@@ -39,7 +39,7 @@ def test_create_app_testing_shares_one_database(shared_testing_db):
         try:
             assert conn.execute(
                 "SELECT COUNT(*) FROM schema_migrations"
-            ).fetchone()[0] == 9
+            ).fetchone()[0] == 10
             assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         finally:
             conn.close()

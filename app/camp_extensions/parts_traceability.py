@@ -18,6 +18,7 @@ Both paths hit the same /api/parts/scan endpoint and are logged identically.
 import uuid
 from datetime import datetime
 from app.database import get_db
+from app.auth import get_current_company_id
 
 
 def ensure_parts_schema():
@@ -28,19 +29,23 @@ def ensure_parts_schema():
 
 
 def register_part(part_name, ata_chapter, component_id, aircraft_id, easa_form1_ref,
-                   manufactured_date, part_serial=None):
+                   manufactured_date, part_serial=None, company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_parts_schema()
     part_serial = part_serial or f"PN-{uuid.uuid4().hex[:10].upper()}"
     with get_db() as conn:
         if component_id:
             component = conn.execute(
-                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+                'SELECT 1 FROM Components WHERE component_id = ? AND company_id = ?',
+                (component_id, company_id)
             ).fetchone()
             if not component:
                 raise ValueError("Unknown component - part not registered.")
         if aircraft_id:
             aircraft = conn.execute(
-                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+                (aircraft_id, company_id)
             ).fetchone()
             if not aircraft:
                 raise ValueError("Unknown aircraft - part not registered.")
@@ -48,22 +53,28 @@ def register_part(part_name, ata_chapter, component_id, aircraft_id, easa_form1_
         conn.execute('''
             INSERT INTO PartRecords
                 (part_serial, part_name, ata_chapter, component_id, aircraft_id, easa_form1_ref,
-                 manufactured_date, installed_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 manufactured_date, installed_date, company_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (part_serial, part_name, ata_chapter, component_id, aircraft_id, easa_form1_ref,
-              manufactured_date, datetime.now().strftime('%Y-%m-%d')))
+              manufactured_date, datetime.now().strftime('%Y-%m-%d'), company_id))
         conn.commit()
     return part_serial
 
 
-def scan_part(part_serial, scan_type, scanned_by):
+def scan_part(part_serial, scan_type, scanned_by, company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_parts_schema()
     with get_db() as conn:
-        part = conn.execute('SELECT * FROM PartRecords WHERE part_serial = ?', (part_serial,)).fetchone()
+        part = conn.execute(
+            'SELECT * FROM PartRecords WHERE part_serial = ? AND company_id = ?',
+            (part_serial, company_id)
+        ).fetchone()
         result = 'Found' if part else 'Unknown Serial'
         conn.execute(
-            'INSERT INTO PartScanLog (part_serial, scan_type, scanned_by, result) VALUES (?, ?, ?, ?)',
-            (part_serial, scan_type, scanned_by, result)
+            'INSERT INTO PartScanLog (part_serial, scan_type, scanned_by, result, company_id) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (part_serial, scan_type, scanned_by, result, company_id)
         )
         conn.commit()
     return {'part': dict(part) if part else None, 'result': result}

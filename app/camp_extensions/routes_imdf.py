@@ -10,6 +10,7 @@ routes_parts.py are unchanged and still do the real work.
 from flask import Blueprint, render_template, request, redirect, url_for
 from app.database import get_db
 from app.camp_extensions import imdf
+from app.auth import get_current_company_id
 
 bp = Blueprint('imdf', __name__)
 
@@ -24,14 +25,16 @@ def work_orders_index():
     through here now instead of as independent, disconnected pages.
     """
     imdf.ensure_imdf_schema()
+    company_id = get_current_company_id()
     with get_db() as conn:
         rows = conn.execute('''
             SELECT f.fault_id, f.fault_type, f.amm_reference, f.severity, f.resolved,
                    f.detected_time, f.resolved_date, c.component_id, c.aircraft_id
             FROM Faults f
             JOIN Components c ON f.component_id = c.component_id
+            WHERE f.company_id = ? AND c.company_id = ?
             ORDER BY f.resolved ASC, f.detected_time DESC
-        ''').fetchall()
+        ''', (company_id, company_id)).fetchall()
 
     work_orders = []
     for r in rows:
@@ -52,12 +55,15 @@ def work_orders_index():
 @bp.route('/work-order/<int:fault_id>')
 def work_order_detail(fault_id):
     """The merged Evidence Locker + Parts Traceability + Sign-Off page for one Work Order."""
-    ctx = imdf.get_work_order_context(fault_id)
+    ctx = imdf.get_work_order_context(fault_id, company_id=get_current_company_id())
     if not ctx:
         return redirect(url_for('imdf.work_orders_index'))
 
+    company_id = get_current_company_id()
     with get_db() as conn:
-        engineers = conn.execute('SELECT * FROM Engineers').fetchall()
+        engineers = conn.execute(
+            'SELECT * FROM Engineers WHERE company_id = ?', (company_id,)
+        ).fetchall()
 
     new_part = request.args.get('new_part')
 
@@ -68,6 +74,7 @@ def work_order_detail(fault_id):
 def mark_removed(fault_id):
     """Stage 3: document the removed component against an existing part record."""
     imdf.mark_part_removed(
+        fault_id=fault_id,
         part_serial=request.form.get('part_serial'),
         removal_reason=request.form.get('removal_reason'),
         condition_assessment=request.form.get('condition_assessment'),
@@ -75,5 +82,6 @@ def mark_removed(fault_id):
         flight_hours=request.form.get('flight_hours') or None,
         flight_cycles=request.form.get('flight_cycles') or None,
         position_on_aircraft=request.form.get('position_on_aircraft') or None,
+        company_id=get_current_company_id(),
     )
     return redirect(url_for('imdf.work_order_detail', fault_id=fault_id))

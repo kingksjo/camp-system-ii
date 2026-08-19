@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, jsonif
 from app.database import get_db
 from app.ontology_reasoner import run_fleet_analysis
 from app.diagnostics_jobs import start_diagnostic_job, get_job_status
+from app.auth import get_current_company_id
 
 bp = Blueprint('reasoner', __name__)
 
@@ -27,17 +28,25 @@ def run_reasoner(aircraft_id):
     faster now since app/ontology_reasoner.py batches Pellet into a single
     call instead of one per sensor reading.
     """
+    company_id = get_current_company_id()
+    with get_db() as conn:
+        if not conn.execute(
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+            (aircraft_id, company_id)
+        ).fetchone():
+            return jsonify({'status': 'error', 'message': 'Unknown aircraft'}), 404
+
     wants_json = (
         request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         or 'application/json' in (request.headers.get('Accept') or '')
     )
 
     if request.method == 'POST' and wants_json:
-        job_id = start_diagnostic_job(aircraft_id)
+        job_id = start_diagnostic_job(aircraft_id, company_id)
         return jsonify({'status': 'started', 'job_id': job_id})
 
     # Synchronous fallback (no-JS / direct navigation)
-    run_fleet_analysis(aircraft_id)
+    run_fleet_analysis(aircraft_id, company_id=company_id)
     return redirect(url_for('dashboard.dashboard', tail=aircraft_id))
 
 
@@ -53,9 +62,13 @@ def reasoner_job_status(job_id):
 @bp.route('/xai_reasoner')
 def xai_reasoner():
     """Display XAI reasoning logs and AI decision history."""
+    company_id = get_current_company_id()
     with get_db() as conn:
         try:
-            logs = conn.execute('SELECT rowid, * FROM XAILogs ORDER BY rowid DESC').fetchall()
+            logs = conn.execute(
+                'SELECT rowid, * FROM XAILogs WHERE company_id = ? ORDER BY rowid DESC',
+                (company_id,)
+            ).fetchall()
         except Exception:
             logs = []
     

@@ -6,6 +6,7 @@ import sqlite3
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.database import get_db
+from app.auth import get_current_company_id
 
 bp = Blueprint('flight_log', __name__)
 
@@ -13,6 +14,7 @@ bp = Blueprint('flight_log', __name__)
 @bp.route('/flight_log', methods=['GET', 'POST'])
 def flight_log():
     """Display flight logs and pilot discrepancy reports."""
+    company_id = get_current_company_id()
     if request.method == 'POST':
         aircraft_id = request.form.get('aircraft_id')
         reported_by = request.form.get('reported_by').strip()
@@ -20,7 +22,8 @@ def flight_log():
 
         with get_db() as conn:
             aircraft = conn.execute(
-                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+                (aircraft_id, company_id)
             ).fetchone()
             if not aircraft:
                 flash('Unknown aircraft - PIREP not recorded.', 'error')
@@ -28,8 +31,9 @@ def flight_log():
 
             # Create pilot report
             cursor = conn.execute(
-                'INSERT INTO PilotReports (aircraft_id, reported_by, discrepancy_text) VALUES (?, ?, ?)',
-                (aircraft_id, reported_by, discrepancy_text)
+                'INSERT INTO PilotReports (aircraft_id, reported_by, discrepancy_text, company_id) '
+                'VALUES (?, ?, ?, ?)',
+                (aircraft_id, reported_by, discrepancy_text, company_id)
             )
             pirep_id = cursor.lastrowid
             
@@ -40,14 +44,14 @@ def flight_log():
             try:
                 # Try to get or create component
                 existing = conn.execute(
-                    'SELECT component_id FROM Components WHERE component_id = ?',
-                    (unique_airframe_id,)
+                    'SELECT component_id FROM Components WHERE component_id = ? AND company_id = ?',
+                    (unique_airframe_id, company_id)
                 ).fetchone()
                 
                 if not existing:
                     conn.execute(
-                        'INSERT INTO Components (component_id, aircraft_id) VALUES (?, ?)',
-                        (unique_airframe_id, aircraft_id)
+                        'INSERT INTO Components (component_id, aircraft_id, company_id) VALUES (?, ?, ?)',
+                        (unique_airframe_id, aircraft_id, company_id)
                     )
             except Exception:
                 pass
@@ -57,9 +61,9 @@ def flight_log():
             # is still recorded above, only the redundant fault is skipped.
             try:
                 conn.execute(
-                    'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
-                    'VALUES (?, ?, "Pilot Report", 0, ?)',
-                    (unique_airframe_id, fault_type, f"PIREP_ID_{pirep_id}")
+                    'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference, company_id) '
+                    'VALUES (?, ?, "Pilot Report", 0, ?, ?)',
+                    (unique_airframe_id, fault_type, f"PIREP_ID_{pirep_id}", company_id)
                 )
             except sqlite3.IntegrityError:
                 pass
@@ -69,9 +73,13 @@ def flight_log():
         return redirect(url_for('flight_log.flight_log'))
     
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
         reports = conn.execute(
-            'SELECT rowid AS record_id, * FROM PilotReports WHERE status = "Open" ORDER BY rowid DESC'
+            'SELECT rowid AS record_id, * FROM PilotReports '
+            'WHERE company_id = ? AND status = "Open" ORDER BY rowid DESC',
+            (company_id,)
         ).fetchall()
     
     return render_template('flight_log.html', fleet=fleet, reports=reports)

@@ -626,12 +626,10 @@ Not yet done (tracked as later phases):
 
 Still open for later phases:
 
-- Phase 5: company isolation enforcement (DB-01/DB-13).
-- Ingestion parsing/approval idempotency (the remaining DB-08 candidates:
-  `app/ingestion/runner.py` pending rows and
-  `app/ingestion/commit.py` approval atomicity) - deferred because the
-  ingestion pipeline's approval flow is a separate data-model concern that
-  will be reworked with tenancy (Phase 5).
+- Ingestion parsing idempotency (the remaining DB-08 candidate:
+  `app/ingestion/runner.py` pending rows) - the approval half was closed
+  alongside tenancy in Phase 5 (the commit claim is conditional and the
+  target-row company_id is derived from the owning ingestion row).
 
 ### Phase 4: Conditional background-writer updates (DB-09) - IMPLEMENTED (2026-08-19)
 
@@ -699,13 +697,72 @@ free-text values the kill switch had to guess from.
   tenant-leading indexes belong with Phase 5 (DB-01) enforcement.
 - Backup of the pre-3B database: `camp_system.db.pre-3b.bak`.
 
+### Phase 5: Company tenancy enforcement (DB-01/DB-13) - IMPLEMENTED (2026-08-19)
+
+DB-01: most operational tables had no `company_id` column, so an
+authenticated user could read or mutate another company's records by ID
+(dashboard, telemetry, MEL, faults, evidence, parts, ingestion approval).
+This phase adds ownership to every operational table and enforces it on
+every read/write path.
+
+- **Migration `010_company_tenancy`** adds `company_id INTEGER NOT NULL
+  DEFAULT 1` to every operational table (Components, Schedule,
+  MEL_Deferrals, PilotReports, DigitalEvidence, PartRecords,
+  EnvironmentalRiskLog, DiagnosticJobs, ScheduleReminders,
+  AircraftEnvironmentContext, Faults, SensorTelemetry, XAILogs,
+  CAMSISGroundingLog, IoTToolReadings, HITLPacketLog, KillSwitchProcessedCRS,
+  KillSwitchLog, MaintenanceHistory, CRS_Records, MaintenanceDocuments,
+  PartScanLog, ScheduleLifecycleLog, ExtractionAuditLog, MaintenanceRecords,
+  LegalSignOffs). Ownership is backfilled through the nearest owning row
+  (aircraft -> components -> telemetry/faults; CRS -> kill-switch logs; part
+  -> scan log; schedule -> lifecycle log; extraction -> audit log); rows
+  whose owner cannot be resolved fall back to the seeded company (1) and are
+  preserved, never deleted. Company-leading indexes are added on the hot
+  query paths.
+- **`app/tenancy.py`** centralizes ownership: `current_company_id()`
+  (session/`g`, with a safe default outside request contexts),
+  `find_owned()`/`require_owned()` and named helpers
+  (`owned_aircraft`, `require_fault`, `owned_part`, ...). Routes never guess
+  a company id or hand-roll a filter.
+- **Route scoping (IDOR fixes):** every route now filters list queries and
+  validates ownership before ID-based reads/writes - dashboard, workspace,
+  calendar, history, flight log, due list, personnel, tool crib, MEL
+  (deferral creation/resolution, MMEL lookups), telemetry (poll/clear/
+  history APIs 404 on foreign aircraft, component seeding is scoped),
+  reasoner (`run_reasoner` verifies the aircraft and threads `company_id`
+  through the background job), fault resolution (fault/engineer/component/
+  part ownership, CRS and history stamped), and the ingestion review
+  (`routes/ingestion.py`).
+- **Service/background modules:** `cbr_engine`, `ontology_reasoner`,
+  `diagnostics_jobs`, and every extension service (`imdf`, `digital_evidence`,
+  `parts_traceability`, `maintenance_documents`, `camsis`,
+  `environmental_stressor`, `ghost_data`, `schedule_lifecycle`,
+  `fullcalendar_schedule`, `hitl_listener`, `iot_tools`, `kill_switch`)
+  accept an explicit `company_id=` and stamp/filter every row. Request-context
+  functions default to the session company; watchers and listener threads
+  (kill switch, schedule lifecycle, HITL) never touch the Flask session -
+  they iterate `Companies` and run one sweep per tenant.
+- **Ingestion approval** (`app/ingestion/commit.py`) now requires the
+  extraction row to belong to the caller's company, derives the target row's
+  `company_id` from the owning ingestion row (never from submitted data),
+  and keeps the conditional status claim so a racing second approval can
+  never commit twice (DB-08/DB-01 together).
+- **Tests:** `tests/test_tenancy.py` (10 tests) seeds two companies with
+  identically-shaped data and verifies list isolation (dashboard, personnel,
+  tool crib, MEL, history) plus IDOR rejection (telemetry poll/history,
+  reasoner, fault resolution against foreign IDs). Full suite: 42 tests.
+- Backup of the pre-tenancy database: `camp_system.db.pre-3b.bak` (the 010
+  migration is applied to a copy first, then the live file once verified).
+
 ## Test Plan
 
-*Phases 2A-3B/4 delivered automated coverage in `tests/test_migrations.py`,
-`tests/test_app_factory.py`, and `tests/test_background_writers.py` (fresh
+*Phases 2A-5 delivered automated coverage in `tests/test_migrations.py`,
+`tests/test_app_factory.py`, `tests/test_background_writers.py`, and
+`tests/test_tenancy.py` (fresh
 migration, idempotency, orphan-repair upgrade, FK enforcement, indexes, WAL,
 busy_timeout, app-factory test isolation, uniqueness/idempotency guards,
-conditional background-writer updates, stable aircraft references). Run with
+conditional background-writer updates, stable aircraft references,
+cross-company isolation). Run with
 `python -m pytest tests`. The manual scenarios below remain relevant for
 broader regression coverage.*
 

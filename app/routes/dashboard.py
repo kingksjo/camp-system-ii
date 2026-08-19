@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request
 import json
 from app.database import get_db
 from app.cbr_engine import retrieve_similar_cases
+from app.auth import get_current_company_id
 
 bp = Blueprint('dashboard', __name__)
 
@@ -13,8 +14,11 @@ bp = Blueprint('dashboard', __name__)
 @bp.route('/')
 def dashboard():
     """Main dashboard showing fleet status and active faults."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
         
         # Get selected aircraft
         selected_tail = request.args.get('tail')
@@ -34,8 +38,8 @@ def dashboard():
         
         # Get directives for this model
         directives = conn.execute(
-            'SELECT * FROM Directives WHERE target_model = ? AND status = "Open" ORDER BY doc_type ASC',
-            (current_model,)
+            'SELECT * FROM Directives WHERE target_model = ? AND status = "Open" AND company_id = ? ORDER BY doc_type ASC',
+            (current_model, company_id)
         ).fetchall()
         
         # Get active faults with CBR matches
@@ -43,8 +47,8 @@ def dashboard():
             SELECT f.fault_id, f.fault_type, f.severity, f.amm_reference, c.component_id, c.aircraft_id 
             FROM Faults f 
             JOIN Components c ON f.component_id = c.component_id 
-            WHERE f.resolved = 0 AND c.aircraft_id = ?
-        ''', (selected_tail,)).fetchall()
+            WHERE f.resolved = 0 AND c.aircraft_id = ? AND c.company_id = ?
+        ''', (selected_tail, company_id)).fetchall()
         
         # Enrich faults with CBR recommendations
         faults_with_cbr = []
@@ -53,18 +57,21 @@ def dashboard():
             ac_reg = f['aircraft_id'].replace('Aircraft_', '')
             
             # Retrieve similar historical cases
-            similar_past_repairs = retrieve_similar_cases(f['fault_type'], ac_reg)
+            similar_past_repairs = retrieve_similar_cases(f['fault_type'], ac_reg, company_id=company_id)
             fault_dict['cbr_matches'] = similar_past_repairs
             faults_with_cbr.append(fault_dict)
         
         # Get scheduled events
         schedule_sync = conn.execute(
-            'SELECT * FROM Schedule ORDER BY start_time ASC LIMIT 6'
+            'SELECT * FROM Schedule WHERE company_id = ? ORDER BY start_time ASC LIMIT 6',
+            (company_id,)
         ).fetchall()
         
         # Get engineers for UI
         try:
-            engineers = conn.execute('SELECT * FROM Engineers').fetchall()
+            engineers = conn.execute(
+                'SELECT * FROM Engineers WHERE company_id = ?', (company_id,)
+            ).fetchall()
         except Exception:
             engineers = []
         

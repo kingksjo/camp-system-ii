@@ -30,35 +30,48 @@ COMMITTABLE_COLUMNS = {
 }
 
 
-def _resolve_target_model(conn, ingestion):
+def _resolve_target_model(conn, ingestion, company_id):
     """A fleet-wide upload already knows its target_model; a single-tail
     upload needs it looked up from the aircraft it was attached to."""
     if ingestion['target_model']:
         return ingestion['target_model']
-    doc = conn.execute('SELECT aircraft_id FROM AircraftDocuments WHERE doc_id = ?', (ingestion['doc_id'],)).fetchone()
+    doc = conn.execute(
+        'SELECT aircraft_id FROM AircraftDocuments WHERE doc_id = ? AND company_id = ?',
+        (ingestion['doc_id'], company_id),
+    ).fetchone()
     if not doc:
         return None
-    aircraft = conn.execute('SELECT model FROM Aircraft WHERE aircraft_id = ?', (doc['aircraft_id'],)).fetchone()
+    aircraft = conn.execute(
+        'SELECT model FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+        (doc['aircraft_id'], company_id),
+    ).fetchone()
     return aircraft['model'] if aircraft else None
 
 
-def approve_extraction(extraction_id, reviewer, edited_field_data=None):
+def approve_extraction(extraction_id, reviewer, edited_field_data=None, company_id=None):
     """
     Approve one PendingExtractions row, optionally with reviewer edits, and
     commit it into its target table. Returns (ok: bool, message: str).
+
+    Phase 5 (DB-01): the extraction must belong to ``company_id``; the
+    caller derives it from the authenticated session - never from the row.
     """
     with get_db() as conn:
         extraction = conn.execute(
-            'SELECT * FROM PendingExtractions WHERE extraction_id = ?', (extraction_id,)
+            'SELECT * FROM PendingExtractions WHERE extraction_id = ? AND company_id = ?',
+            (extraction_id, company_id),
         ).fetchone()
         if not extraction:
-            return False, "Extraction not found."
+            return False, "Extraction not found or not owned by your company."
         if extraction['status'] != 'Pending':
             return False, f"Already {extraction['status']}."
 
         ingestion = conn.execute(
-            'SELECT * FROM IngestedDocuments WHERE ingestion_id = ?', (extraction['ingestion_id'],)
+            'SELECT * FROM IngestedDocuments WHERE ingestion_id = ? AND company_id = ?',
+            (extraction['ingestion_id'], company_id),
         ).fetchone()
+        if not ingestion:
+            return False, "Source document not found or not owned by your company."
 
         field_data = edited_field_data or json.loads(extraction['field_data'])
         target_table = extraction['target_table']
@@ -69,7 +82,7 @@ def approve_extraction(extraction_id, reviewer, edited_field_data=None):
         row = {k: v for k, v in field_data.items() if k in allowed_columns}
         row['company_id'] = ingestion['company_id'] if 'company_id' in allowed_columns else row.get('company_id')
         if 'target_model' in allowed_columns:
-            row['target_model'] = field_data.get('target_model') or _resolve_target_model(conn, ingestion)
+            row['target_model'] = field_data.get('target_model') or _resolve_target_model(conn, ingestion, company_id)
         if 'source_document_id' in allowed_columns:
             row['source_document_id'] = ingestion['doc_id']
 
@@ -81,6 +94,7 @@ def approve_extraction(extraction_id, reviewer, edited_field_data=None):
                 'description': field_data.get('description') or field_data.get('item_description'),
                 'ata_chapter': field_data.get('ata_chapter'),
                 'target_model': row.get('target_model'),
+                'company_id': ingestion['company_id'],
                 'source_document_id': ingestion['doc_id'],
             }
 
@@ -96,36 +110,45 @@ def approve_extraction(extraction_id, reviewer, edited_field_data=None):
         )
 
         new_status = 'Approved' if not edited_field_data else 'Edited & Approved'
-        conn.execute(
+        # Conditional claim: only one approval may commit a given extraction.
+        # A second (racing) request sees rowcount == 0 and rolls back the
+        # insert above instead of duplicating the target row (DB-08/Phase 5).
+        claimed = conn.execute(
             'UPDATE PendingExtractions SET status = ?, reviewed_by = ?, reviewed_at = ?, field_data = ? '
-            'WHERE extraction_id = ?',
-            (new_status, reviewer, datetime.now().isoformat(), json.dumps(field_data), extraction_id)
+            'WHERE extraction_id = ? AND status = ?',
+            (new_status, reviewer, datetime.now().isoformat(), json.dumps(field_data),
+             extraction_id, 'Pending')
         )
+        if claimed.rowcount == 0:
+            raise RuntimeError("Extraction was already reviewed - no changes committed.")
         conn.execute(
-            'INSERT INTO ExtractionAuditLog (extraction_id, action, changed_fields, actor) VALUES (?, ?, ?, ?)',
+            'INSERT INTO ExtractionAuditLog (extraction_id, action, changed_fields, actor, company_id) '
+            'VALUES (?, ?, ?, ?, ?)',
             (extraction_id, new_status,
-             json.dumps(edited_field_data) if edited_field_data else None, reviewer)
+             json.dumps(edited_field_data) if edited_field_data else None, reviewer, company_id)
         )
         conn.commit()
 
     return True, f"Committed into {target_table}."
 
 
-def reject_extraction(extraction_id, reviewer):
+def reject_extraction(extraction_id, reviewer, company_id=None):
     with get_db() as conn:
         extraction = conn.execute(
-            'SELECT * FROM PendingExtractions WHERE extraction_id = ?', (extraction_id,)
+            'SELECT * FROM PendingExtractions WHERE extraction_id = ? AND company_id = ?',
+            (extraction_id, company_id),
         ).fetchone()
         if not extraction or extraction['status'] != 'Pending':
-            return False, "Not found or already reviewed."
+            return False, "Not found, already reviewed, or not owned by your company."
 
         conn.execute(
-            "UPDATE PendingExtractions SET status = 'Rejected', reviewed_by = ?, reviewed_at = ? WHERE extraction_id = ?",
+            "UPDATE PendingExtractions SET status = 'Rejected', reviewed_by = ?, reviewed_at = ? "
+            "WHERE extraction_id = ? AND status = 'Pending'",
             (reviewer, datetime.now().isoformat(), extraction_id)
         )
         conn.execute(
-            'INSERT INTO ExtractionAuditLog (extraction_id, action, actor) VALUES (?, ?, ?)',
-            (extraction_id, 'Rejected', reviewer)
+            'INSERT INTO ExtractionAuditLog (extraction_id, action, actor, company_id) VALUES (?, ?, ?, ?)',
+            (extraction_id, 'Rejected', reviewer, company_id)
         )
         conn.commit()
 

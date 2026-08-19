@@ -44,7 +44,7 @@ def test_fresh_database_migrates_fully(db_path):
         versions = {r[0] for r in conn.execute("SELECT version FROM schema_migrations").fetchall()}
     finally:
         conn.close()
-    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9}
+    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
     tables = _table_names(str(db_path))
     for required in (
@@ -66,7 +66,7 @@ def test_run_migrations_is_idempotent(db_path):
         count = conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0]
     finally:
         conn.close()
-    assert count == 9
+    assert count == 10
 
 
 def test_upgrade_repairs_known_orphans(db_path, monkeypatch):
@@ -137,7 +137,7 @@ def test_upgrade_repairs_known_orphans(db_path, monkeypatch):
             "SELECT version FROM schema_migrations"
         ).fetchall()
     }
-    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9}
+    assert versions == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
 
 def test_fresh_database_declares_missing_foreign_keys(db_path):
@@ -731,5 +731,207 @@ def test_log_maintenance_action_records_stable_aircraft_id(db_path):
             ('5N_MUM', 'Aircraft_5N_MUM', 'task two'),
             ('ZZ-UNKNOWN', None, 'task three'),
         ]
+    finally:
+        conn.close()
+
+
+def test_migration_010_backfills_company_ids_from_ownership_chain(db_path, monkeypatch):
+    """Migration 10 stamps every operational table with its owner's company,
+    deriving it through the aircraft/component/crs/part/schedule/extraction
+    chains - not from any user input."""
+    full_migrations = migrations_module.MIGRATIONS
+    monkeypatch.setattr(migrations_module, "MIGRATIONS", full_migrations[:9])
+    migrations_module.run_migrations()
+
+    raw = sqlite3.connect(str(db_path))
+    raw.execute(
+        "INSERT INTO Companies (company_id, company_name) VALUES (2, 'Tenant Two')"
+    )
+    raw.execute(
+        "INSERT INTO Aircraft (aircraft_id, registration, company_id) "
+        "VALUES ('Aircraft_C1', 'C1-REG', 2)"
+    )
+    raw.execute(
+        "INSERT INTO Aircraft (aircraft_id, registration, company_id) "
+        "VALUES ('Aircraft_C2', 'C2-REG', 1)"
+    )
+    raw.execute(
+        "INSERT INTO Components (component_id, aircraft_id) "
+        "VALUES ('Comp_C1', 'Aircraft_C1'), ('Comp_C2', 'Aircraft_C2')"
+    )
+    raw.execute(
+        "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) "
+        "VALUES ('Comp_C1', 'temp', 1.0), ('Comp_C2', 'temp', 2.0)"
+    )
+    raw.execute(
+        "INSERT INTO Faults (component_id, fault_type, severity) "
+        "VALUES ('Comp_C1', 'Overheat', 'High'), ('Comp_C2', 'Overheat', 'High')"
+    )
+    raw.execute(
+        "INSERT INTO Schedule (aircraft_id, event_type, title) "
+        "VALUES ('Aircraft_C1', 'Check', 'C1 event'), ('Aircraft_C2', 'Check', 'C2 event')"
+    )
+    raw.execute(
+        "INSERT INTO MEL_Deferrals (aircraft_id, item_description) "
+        "VALUES ('Aircraft_C1', 'C1 mel'), ('Aircraft_C2', 'C2 mel')"
+    )
+    raw.execute(
+        "INSERT INTO PilotReports (aircraft_id, reported_by, discrepancy_text) "
+        "VALUES ('Aircraft_C1', 'p', 'C1 report'), ('Aircraft_C2', 'p', 'C2 report')"
+    )
+    raw.execute(
+        "INSERT INTO MaintenanceHistory (aircraft_reg, aircraft_id, task_description) "
+        "VALUES ('C1-REG', 'Aircraft_C1', 'C1 work'), ('C2-REG', 'Aircraft_C2', 'C2 work')"
+    )
+    raw.execute(
+        "INSERT INTO CRS_Records (aircraft_reg, aircraft_id, reference_id) "
+        "VALUES ('C1-REG', 'Aircraft_C1', 'FAULT-1'), ('C2-REG', 'Aircraft_C2', 'FAULT-2')"
+    )
+    raw.execute(
+        "INSERT INTO PartRecords (part_serial, component_id, aircraft_id) "
+        "VALUES ('PART-C1', 'Comp_C1', 'Aircraft_C1'), ('PART-C2', 'Comp_C2', 'Aircraft_C2')"
+    )
+    raw.execute(
+        "INSERT INTO DigitalEvidence (evidence_id, aircraft_id) "
+        "VALUES ('E-C1', 'Aircraft_C1'), ('E-C2', 'Aircraft_C2')"
+    )
+    raw.execute(
+        "INSERT INTO DiagnosticJobs (job_id, aircraft_id) "
+        "VALUES ('job-c1', 'Aircraft_C1'), ('job-c2', 'Aircraft_C2')"
+    )
+    raw.execute(
+        "INSERT INTO Schedule (event_id, aircraft_id, event_type, title) "
+        "VALUES (99, 'Aircraft_C2', 'Check', 'C2 later')"
+    )
+    raw.execute(
+        "INSERT INTO ScheduleReminders (record_id, title, aircraft_id) "
+        "VALUES (1, 'C1 reminder', 'Aircraft_C1'), (2, 'C2 reminder', 'Aircraft_C2')"
+    )
+    raw.execute(
+        "INSERT INTO ScheduleLifecycleLog (record_id, title, action, reason) "
+        "VALUES (1, 'C1 event', 'Expired', 'r'), (2, 'C2 event', 'Expired', 'r'), (99, 'C2 later', 'Expired', 'r')"
+    )
+    raw.execute(
+        "INSERT INTO KillSwitchProcessedCRS (crs_id) VALUES (1), (2)"
+    )
+    raw.execute(
+        "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason) "
+        "VALUES (1, 'C1-REG', 'Schedule', '1', 'Cancelled', 'r'), (2, 'C2-REG', 'Schedule', '2', 'Cancelled', 'r')"
+    )
+    raw.execute(
+        "INSERT INTO PartScanLog (part_serial, scan_type, scanned_by, result) "
+        "VALUES ('PART-C1', 'IN', 'p', 'ok'), ('PART-C2', 'IN', 'p', 'ok')"
+    )
+    raw.execute(
+        "INSERT INTO XAILogs (component_id, ai_decision) "
+        "VALUES ('Comp_C1', 'x'), ('Comp_C2', 'x')"
+    )
+    raw.execute(
+        "INSERT INTO CAMSISGroundingLog (component_id, limit_category, used_value, limit_value, remaining, margin_pct, status) "
+        "VALUES ('Comp_C1', 'Cycles', 1, 2, 1, 50, 'OK'), ('Comp_C2', 'Cycles', 1, 2, 1, 50, 'OK')"
+    )
+    raw.execute(
+        "INSERT INTO IoTToolReadings (reading_id, component_id, torque_value, in_spec) "
+        "VALUES ('R-C1', 'Comp_C1', 1.0, 1), ('R-C2', 'Comp_C2', 1.0, 1)"
+    )
+    raw.execute(
+        "INSERT INTO HITLPacketLog (raw_payload, component_id, sensor_type, reading_value) "
+        "VALUES ('p1', 'Comp_C1', 'temp', 1.0), ('p2', 'Comp_C2', 'temp', 2.0)"
+    )
+    raw.execute(
+        "INSERT INTO AircraftEnvironmentContext (aircraft_id, ambient_temp_c, humidity_pct) "
+        "VALUES ('Aircraft_C1', 30.0, 50.0), ('Aircraft_C2', 30.0, 50.0)"
+    )
+    raw.execute(
+        "INSERT INTO EnvironmentalRiskLog (aircraft_id, sensor_type, stressor, base_threshold, adjusted_threshold) "
+        "VALUES ('Aircraft_C1', 'temp', 'heat', 1.0, 1.0), ('Aircraft_C2', 'temp', 'heat', 1.0, 1.0)"
+    )
+    raw.execute(
+        "INSERT INTO MaintenanceDocuments (document_id, source_type, source_id, aircraft_reg) "
+        "VALUES ('DOC-C1', 'crs', '1', 'C1-REG'), ('DOC-C2', 'crs', '2', 'C2-REG')"
+    )
+    raw.commit()
+    raw.close()
+
+    monkeypatch.setattr(migrations_module, "MIGRATIONS", full_migrations)
+    migrations_module.run_migrations()
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        checks = [
+            ("Components", "component_id", "Comp_C1", 2),
+            ("Components", "component_id", "Comp_C2", 1),
+            ("SensorTelemetry", "component_id", "Comp_C1", 2),
+            ("SensorTelemetry", "component_id", "Comp_C2", 1),
+            ("Faults", "component_id", "Comp_C1", 2),
+            ("Faults", "component_id", "Comp_C2", 1),
+            ("Schedule", "event_id", 1, 2),
+            ("Schedule", "event_id", 2, 1),
+            ("MEL_Deferrals", "deferral_id", 1, 2),
+            ("MEL_Deferrals", "deferral_id", 2, 1),
+            ("PilotReports", "report_id", 1, 2),
+            ("PilotReports", "report_id", 2, 1),
+            ("MaintenanceHistory", "log_id", 1, 2),
+            ("MaintenanceHistory", "log_id", 2, 1),
+            ("CRS_Records", "id", 1, 2),
+            ("CRS_Records", "id", 2, 1),
+            ("PartRecords", "part_serial", "PART-C1", 2),
+            ("PartRecords", "part_serial", "PART-C2", 1),
+            ("DigitalEvidence", "evidence_id", "E-C1", 2),
+            ("DigitalEvidence", "evidence_id", "E-C2", 1),
+            ("DiagnosticJobs", "job_id", "job-c1", 2),
+            ("DiagnosticJobs", "job_id", "job-c2", 1),
+            ("ScheduleReminders", "record_id", 1, 2),
+            ("ScheduleReminders", "record_id", 2, 1),
+            ("ScheduleLifecycleLog", "id", 1, 2),
+            ("ScheduleLifecycleLog", "id", 2, 1),
+            ("ScheduleLifecycleLog", "id", 3, 1),
+            ("KillSwitchProcessedCRS", "crs_id", 1, 2),
+            ("KillSwitchProcessedCRS", "crs_id", 2, 1),
+            ("KillSwitchLog", "id", 1, 2),
+            ("KillSwitchLog", "id", 2, 1),
+            ("PartScanLog", "id", 1, 2),
+            ("PartScanLog", "id", 2, 1),
+            ("XAILogs", "log_id", 1, 2),
+            ("XAILogs", "log_id", 2, 1),
+            ("CAMSISGroundingLog", "id", 1, 2),
+            ("CAMSISGroundingLog", "id", 2, 1),
+            ("IoTToolReadings", "reading_id", "R-C1", 2),
+            ("IoTToolReadings", "reading_id", "R-C2", 1),
+            ("HITLPacketLog", "id", 1, 2),
+            ("HITLPacketLog", "id", 2, 1),
+            ("AircraftEnvironmentContext", "aircraft_id", "Aircraft_C1", 2),
+            ("AircraftEnvironmentContext", "aircraft_id", "Aircraft_C2", 1),
+            ("EnvironmentalRiskLog", "id", 1, 2),
+            ("EnvironmentalRiskLog", "id", 2, 1),
+            ("MaintenanceDocuments", "document_id", "DOC-C1", 2),
+            ("MaintenanceDocuments", "document_id", "DOC-C2", 1),
+        ]
+        for table, pk, pk_value, expected in checks:
+            row = conn.execute(
+                f"SELECT company_id FROM {table} WHERE {pk} = ?", (pk_value,)
+            ).fetchone()
+            assert row is not None, f"{table} {pk}={pk_value} missing"
+            assert row["company_id"] == expected, (
+                f"{table} {pk}={pk_value}: expected company {expected}, got {row['company_id']}"
+            )
+    finally:
+        conn.close()
+
+    assert _check_fk(str(db_path)) == []
+
+
+def test_migration_010_reference_tables_default_to_seeded_company(db_path):
+    migrations_module.run_migrations()
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        for table in (
+            "MaintenanceTasks", "Directives", "SWRLRules", "CAMSISLimits",
+            "TorqueSpecs", "HITLListenerConfig",
+        ):
+            cols = [c[1] for c in conn.execute(f"PRAGMA table_info({table})")]
+            assert "company_id" in cols, f"{table} missing company_id"
     finally:
         conn.close()

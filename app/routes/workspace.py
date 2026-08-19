@@ -23,13 +23,21 @@ def _ensure_mmel_schema(conn):
 @bp.route('/workspace')
 def workspace():
     """Display workspace for managing aircraft and directives."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
-        unique_models = conn.execute('SELECT DISTINCT model FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
+        unique_models = conn.execute(
+            'SELECT DISTINCT model FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
 
         _ensure_mmel_schema(conn)
         conn.commit()
-        mmel_items = conn.execute('SELECT * FROM MasterMEL ORDER BY target_model, ata_chapter').fetchall()
+        mmel_items = conn.execute(
+            'SELECT * FROM MasterMEL WHERE company_id = ? ORDER BY target_model, ata_chapter',
+            (company_id,)
+        ).fetchall()
 
     return render_template('workspace.html', fleet=fleet, unique_models=unique_models, mmel_items=mmel_items)
 
@@ -80,8 +88,8 @@ def update_amm():
     if pdf_path:
         with get_db() as conn:
             conn.execute(
-                'UPDATE Aircraft SET amm_pdf_path = ? WHERE aircraft_id = ?',
-                (pdf_path, aircraft_id)
+                'UPDATE Aircraft SET amm_pdf_path = ? WHERE aircraft_id = ? AND company_id = ?',
+                (pdf_path, aircraft_id, get_current_company_id())
             )
             conn.commit()
     
@@ -102,9 +110,9 @@ def add_directive():
     
     with get_db() as conn:
         conn.execute(
-            'INSERT INTO Directives (target_model, doc_type, ref_number, description, pdf_path) '
-            'VALUES (?, ?, ?, ?, ?)',
-            (target_model, doc_type, ref_number, description, pdf_path)
+            'INSERT INTO Directives (target_model, doc_type, ref_number, description, pdf_path, company_id) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (target_model, doc_type, ref_number, description, pdf_path, get_current_company_id())
         )
         conn.commit()
     
@@ -119,14 +127,15 @@ def add_task():
     with get_db() as conn:
         conn.execute('''
             INSERT INTO MaintenanceTasks 
-            (task_id, task_name, task_category, interval_hours, interval_cycles, interval_months, target_model) 
-            VALUES (?, ?, "Routine", ?, ?, 0, ?)
+            (task_id, task_name, task_category, interval_hours, interval_cycles, interval_months, target_model, company_id) 
+            VALUES (?, ?, "Routine", ?, ?, 0, ?, ?)
         ''', (
             request.form['task_id'],
             request.form['task_name'],
             request.form['interval_hours'],
             request.form['interval_cycles'],
-            target_model
+            target_model,
+            get_current_company_id()
         ))
         conn.commit()
     
@@ -138,13 +147,13 @@ def add_mmel_item():
     """
     Add an item to the Master Minimum Equipment List for an aircraft type/model
     (feature #5 - the MEL tracker's deferrals now reference this master list
-    instead of a free-typed category, see app/routes/mel.py).
+instead of a free-typed category, see app/routes/mel.py).
     """
     with get_db() as conn:
         _ensure_mmel_schema(conn)
         conn.execute('''
-            INSERT INTO MasterMEL (target_model, ata_chapter, item_description, mmel_category, max_deferral_days, remarks)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO MasterMEL (target_model, ata_chapter, item_description, mmel_category, max_deferral_days, remarks, company_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
             request.form['target_model'],
             request.form.get('ata_chapter', ''),
@@ -152,6 +161,7 @@ def add_mmel_item():
             request.form['mmel_category'],
             int(request.form['max_deferral_days']),
             request.form.get('remarks', ''),
+            get_current_company_id(),
         ))
         conn.commit()
 
@@ -162,7 +172,10 @@ def add_mmel_item():
 def remove_mmel_item(mmel_id):
     """Retire an MMEL item from the master register."""
     with get_db() as conn:
-        conn.execute('DELETE FROM MasterMEL WHERE mmel_id = ?', (mmel_id,))
+        conn.execute(
+            'DELETE FROM MasterMEL WHERE mmel_id = ? AND company_id = ?',
+            (mmel_id, get_current_company_id())
+        )
         conn.commit()
     return redirect(url_for('workspace.workspace'))
 
@@ -177,7 +190,10 @@ def remove_aircraft(aircraft_id):
     """
     with get_db() as conn:
         try:
-            conn.execute('DELETE FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,))
+            conn.execute(
+                'DELETE FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+                (aircraft_id, get_current_company_id())
+            )
             conn.commit()
         except sqlite3.IntegrityError:
             flash(
@@ -201,10 +217,15 @@ def setup_lifecycles():
         messages.append("✅ Lifecycle columns present in Components table.")
         
         try:
+            aircraft = conn.execute(
+                'SELECT company_id FROM Aircraft WHERE aircraft_id = ?',
+                ('Aircraft_5N_TAJ',)
+            ).fetchone()
+            target_company = aircraft['company_id'] if aircraft else get_current_company_id()
             conn.execute('''
-                INSERT OR REPLACE INTO Components (component_id, aircraft_id, csn, max_csn) 
-                VALUES ('Nose_Landing_Gear', 'Aircraft_5N_TAJ', 4995, 5000)
-            ''')
+                INSERT OR REPLACE INTO Components (component_id, aircraft_id, csn, max_csn, company_id) 
+                VALUES ('Nose_Landing_Gear', 'Aircraft_5N_TAJ', 4995, 5000, ?)
+            ''', (target_company,))
             conn.commit()
             messages.append("⚙️ Seeded Nose_Landing_Gear for 5N-TAJ with 4,995 cycles.")
         except Exception as e:
@@ -225,12 +246,12 @@ def add_swrl_rule():
     
     with get_db() as conn:
         conn.execute(
-            'INSERT INTO SWRLRules (rule_name, rule_body) VALUES (?, ?)',
-            (rule_name, rule_body)
+            'INSERT INTO SWRLRules (rule_name, rule_body, company_id) VALUES (?, ?, ?)',
+            (rule_name, rule_body, get_current_company_id())
         )
         conn.execute(
-            'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
-            ('SWRL Editor', 'Rule Pending Review', f"{rule_name}: {rule_body}")
+            'INSERT INTO XAILogs (component_id, ai_decision, explanation_text, company_id) VALUES (?, ?, ?, ?)',
+            ('SWRL Editor', 'Rule Pending Review', f"{rule_name}: {rule_body}", get_current_company_id())
         )
         conn.commit()
     

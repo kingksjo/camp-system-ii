@@ -13,6 +13,7 @@ from app.database import get_db
 from app.utils import create_digital_signature
 from app.cbr_engine import log_maintenance_action
 from app.license_compliance import check_fault_signoff
+from app.auth import get_current_company_id
 
 bp = Blueprint('mel', __name__)
 
@@ -36,10 +37,11 @@ def mel():
 
     if request.method == 'POST':
         mmel_id = request.form.get('mmel_id') or None
+        company_id = get_current_company_id()
         with get_db() as conn:
             aircraft = conn.execute(
-                'SELECT 1 FROM Aircraft WHERE aircraft_id = ?',
-                (request.form['aircraft_id'],)
+                'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+                (request.form['aircraft_id'], company_id)
             ).fetchone()
             if not aircraft:
                 flash('Unknown aircraft - deferral not recorded.', 'error')
@@ -47,36 +49,47 @@ def mel():
 
             if mmel_id:
                 mmel_item = conn.execute(
-                    'SELECT 1 FROM MasterMEL WHERE mmel_id = ?', (mmel_id,)
+                    'SELECT 1 FROM MasterMEL WHERE mmel_id = ? AND company_id = ?',
+                    (mmel_id, company_id)
                 ).fetchone()
                 if not mmel_item:
                     flash('Selected MMEL item no longer exists - deferral not recorded.', 'error')
                     return redirect(url_for('mel.mel'))
 
             conn.execute(
-                'INSERT INTO MEL_Deferrals (aircraft_id, item_description, mel_category, date_deferred, mmel_id) '
-                'VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO MEL_Deferrals (aircraft_id, item_description, mel_category, date_deferred, mmel_id, company_id) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
                 (
                     request.form['aircraft_id'],
                     request.form['item_description'],
                     request.form['mel_category'],
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     mmel_id,
+                    company_id,
                 )
             )
             conn.commit()
         return redirect(url_for('mel.mel'))
     
+    company_id = get_current_company_id()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
         raw_deferrals = conn.execute(
-            'SELECT * FROM MEL_Deferrals WHERE status = "Active"'
+            'SELECT * FROM MEL_Deferrals WHERE company_id = ? AND status = "Active"',
+            (company_id,)
         ).fetchall()
 
-        mmel_items = conn.execute('SELECT * FROM MasterMEL ORDER BY target_model, item_description').fetchall()
+        mmel_items = conn.execute(
+            'SELECT * FROM MasterMEL WHERE company_id = ? ORDER BY target_model, item_description',
+            (company_id,)
+        ).fetchall()
         
         try:
-            engineers = conn.execute("SELECT * FROM Engineers").fetchall()
+            engineers = conn.execute(
+                "SELECT * FROM Engineers WHERE company_id = ?", (company_id,)
+            ).fetchall()
         except Exception:
             engineers = []
     
@@ -92,7 +105,10 @@ def mel():
         limit = DEFAULT_CATEGORY_LIMITS.get(d['mel_category'], 0)
         if 'mmel_id' in d.keys() and d['mmel_id']:
             with get_db() as conn:
-                mmel_ref = conn.execute('SELECT * FROM MasterMEL WHERE mmel_id = ?', (d['mmel_id'],)).fetchone()
+                mmel_ref = conn.execute(
+                    'SELECT * FROM MasterMEL WHERE mmel_id = ? AND company_id = ?',
+                    (d['mmel_id'], company_id)
+                ).fetchone()
             if mmel_ref:
                 limit = mmel_ref['max_deferral_days']
 
@@ -118,7 +134,8 @@ def api_mmel_by_model(model):
     """Used by the MEL Tracker's 'Reference MMEL Item' dropdown to filter by the selected aircraft's model."""
     with get_db() as conn:
         items = conn.execute(
-            'SELECT * FROM MasterMEL WHERE target_model = ? ORDER BY item_description', (model,)
+            'SELECT * FROM MasterMEL WHERE target_model = ? AND company_id = ? ORDER BY item_description',
+            (model, get_current_company_id())
         ).fetchall()
     return jsonify([dict(i) for i in items])
 
@@ -127,16 +144,18 @@ def api_mmel_by_model(model):
 def resolve_mel(deferral_id):
     """Clear a MEL deferral (license-gated by ATA chapter when the deferral references an MMEL item)."""
     emp_id = request.form.get('engineer_id')
+    company_id = get_current_company_id()
     
     with get_db() as conn:
         engineer = conn.execute(
-            'SELECT full_name, license_number, stamp_number, license_type FROM Engineers WHERE emp_id = ?',
-            (emp_id,)
+            'SELECT full_name, license_number, stamp_number, license_type FROM Engineers '
+            'WHERE emp_id = ? AND company_id = ?',
+            (emp_id, company_id)
         ).fetchone()
         
         deferral = conn.execute(
-            'SELECT * FROM MEL_Deferrals WHERE deferral_id = ?',
-            (deferral_id,)
+            'SELECT * FROM MEL_Deferrals WHERE deferral_id = ? AND company_id = ?',
+            (deferral_id, company_id)
         ).fetchone()
         
         if engineer and deferral:
@@ -145,7 +164,10 @@ def resolve_mel(deferral_id):
             # sign-off is gated (feature #3) - ad-hoc entries with no chapter
             # classification are allowed through, same as before.
             if 'mmel_id' in deferral.keys() and deferral['mmel_id']:
-                mmel_ref = conn.execute('SELECT * FROM MasterMEL WHERE mmel_id = ?', (deferral['mmel_id'],)).fetchone()
+                mmel_ref = conn.execute(
+                    'SELECT * FROM MasterMEL WHERE mmel_id = ? AND company_id = ?',
+                    (deferral['mmel_id'], company_id)
+                ).fetchone()
                 if mmel_ref and mmel_ref['ata_chapter']:
                     allowed, required = check_fault_signoff(engineer['license_type'], mmel_ref['ata_chapter'])
                     if not allowed:
@@ -161,11 +183,14 @@ def resolve_mel(deferral_id):
             task_desc = f"Cleared MEL Deferral: {deferral['item_description']}"
             aircraft_reg = deferral['aircraft_id'].replace('Aircraft_', '')
             
-            log_maintenance_action(aircraft_reg, task_desc, digital_signature, conn=conn)
+            log_maintenance_action(
+                aircraft_reg, task_desc, digital_signature,
+                conn=conn, company_id=company_id,
+            )
             
             conn.execute(
-                'UPDATE MEL_Deferrals SET status = "Resolved" WHERE deferral_id = ?',
-                (deferral_id,)
+                'UPDATE MEL_Deferrals SET status = "Resolved" WHERE deferral_id = ? AND company_id = ?',
+                (deferral_id, company_id)
             )
         
         conn.commit()

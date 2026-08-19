@@ -14,6 +14,7 @@ from app.database import get_db
 from app.utils import create_digital_signature
 from app.cbr_engine import log_maintenance_action
 from app.license_compliance import check_schedule_signoff
+from app.auth import get_current_company_id
 from app.camp_extensions import kill_switch
 
 bp = Blueprint('calendar', __name__)
@@ -98,14 +99,21 @@ def calendar():
     week_start = current_week_start + timedelta(weeks=offset)
     week_end = week_start + timedelta(days=6)
 
+    company_id = get_current_company_id()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
         schedule_data = conn.execute(
-            'SELECT rowid as record_id, * FROM Schedule WHERE status = "Scheduled" OR status IS NULL ORDER BY start_time ASC'
+            'SELECT rowid as record_id, * FROM Schedule '
+            'WHERE company_id = ? AND (status = "Scheduled" OR status IS NULL) ORDER BY start_time ASC',
+            (company_id,)
         ).fetchall()
 
         try:
-            engineers = conn.execute("SELECT * FROM Engineers").fetchall()
+            engineers = conn.execute(
+                "SELECT * FROM Engineers WHERE company_id = ?", (company_id,)
+            ).fetchall()
         except Exception:
             engineers = []
 
@@ -130,9 +138,9 @@ def calendar():
         pending_crs_scans = conn.execute('''
             SELECT COUNT(*) as cnt FROM CRS_Records c
             LEFT JOIN KillSwitchProcessedCRS p ON c.id = p.crs_id
-            WHERE p.crs_id IS NULL
-        ''').fetchone()['cnt']
-    activity_log = kill_switch.get_hangar_activity_log(limit=100)
+            WHERE p.crs_id IS NULL AND c.company_id = ?
+        ''', (company_id,)).fetchone()['cnt']
+    activity_log = kill_switch.get_hangar_activity_log(limit=100, company_id=company_id)
 
     return render_template(
         'calendar.html',
@@ -169,24 +177,27 @@ def schedule_check():
     
     title = f"Scheduled {check_type} ({aircraft_id.replace('Aircraft_', '')})"
     
+    company_id = get_current_company_id()
     with get_db() as conn:
         aircraft = conn.execute(
-            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?',
+            (aircraft_id, company_id)
         ).fetchone()
         if not aircraft:
             flash(f'Unknown aircraft {aircraft_id} - event not scheduled.', 'error')
             return redirect(url_for('calendar.calendar'))
 
         conn.execute(
-            'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color, company_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
             (
                 aircraft_id,
                 'Maintenance',
                 title,
                 start_time.strftime('%Y-%m-%d %H:%M:%S'),
                 end_time.strftime('%Y-%m-%d %H:%M:%S'),
-                color
+                color,
+                company_id
             )
         )
         conn.commit()
@@ -198,16 +209,18 @@ def schedule_check():
 def sign_off_schedule(record_id):
     """Sign off a completed schedule item (license-gated - see app/license_compliance.py)."""
     emp_id = request.form.get('engineer_id')
+    company_id = get_current_company_id()
     
     with get_db() as conn:
         engineer = conn.execute(
-            'SELECT full_name, license_number, stamp_number, license_type FROM Engineers WHERE emp_id = ?',
-            (emp_id,)
+            'SELECT full_name, license_number, stamp_number, license_type FROM Engineers '
+            'WHERE emp_id = ? AND company_id = ?',
+            (emp_id, company_id)
         ).fetchone()
         
         schedule_item = conn.execute(
-            'SELECT rowid as record_id, * FROM Schedule WHERE rowid = ?',
-            (record_id,)
+            'SELECT rowid as record_id, * FROM Schedule WHERE event_id = ? AND company_id = ?',
+            (record_id, company_id)
         ).fetchone()
         
         if engineer and schedule_item:
@@ -230,9 +243,14 @@ def sign_off_schedule(record_id):
             task_desc = f"Hangar Check: {schedule_item['title']}"
             aircraft_reg = schedule_item['aircraft_id'].replace('Aircraft_', '')
             
-            log_maintenance_action(aircraft_reg, task_desc, digital_signature, conn=conn)
+            log_maintenance_action(
+                aircraft_reg, task_desc, digital_signature, conn=conn, company_id=company_id
+            )
             
-            conn.execute("UPDATE Schedule SET status = 'Completed' WHERE rowid = ?", (record_id,))
+            conn.execute(
+                "UPDATE Schedule SET status = 'Completed' WHERE event_id = ? AND company_id = ?",
+                (record_id, company_id)
+            )
         
         conn.commit()
     

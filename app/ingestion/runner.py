@@ -12,22 +12,27 @@ from app.ingestion.tier1_parsers import parse_tier1_document, FIELD_KEYWORDS as 
 from app.ingestion.tier3_parser import parse_tier3_document, Tier3NotConfigured, FIELD_SCHEMA as TIER3_TYPES
 
 
-def parse_ingested_document(ingestion_id):
+def parse_ingested_document(ingestion_id, company_id=None):
     """
     Run the appropriate parser for one IngestedDocuments row and populate
     PendingExtractions. Returns a status string for the caller to show.
+
+    Phase 5 (DB-01): the ingestion row must belong to ``company_id`` - the
+    caller derives it from the authenticated session, never from the URL.
     """
     ensure_ingestion_schema()
 
     with get_db() as conn:
         ingestion = conn.execute(
-            'SELECT * FROM IngestedDocuments WHERE ingestion_id = ?', (ingestion_id,)
+            'SELECT * FROM IngestedDocuments WHERE ingestion_id = ? AND company_id = ?',
+            (ingestion_id, company_id),
         ).fetchone()
         if not ingestion:
             return 'Not Found'
 
         doc = conn.execute(
-            'SELECT * FROM AircraftDocuments WHERE doc_id = ?', (ingestion['doc_id'],)
+            'SELECT * FROM AircraftDocuments WHERE doc_id = ? AND company_id = ?',
+            (ingestion['doc_id'], company_id)
         ).fetchone()
         if not doc:
             return 'Not Found'

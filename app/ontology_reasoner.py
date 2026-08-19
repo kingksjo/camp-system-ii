@@ -30,6 +30,7 @@ from datetime import datetime
 from owlready2 import get_ontology, sync_reasoner_pellet, destroy_entity, onto_path
 from app.database import get_db
 from app.config import Config
+from app.auth import get_current_company_id
 
 PELLET_TIMEOUT_SECONDS = 15
 
@@ -309,16 +310,22 @@ def get_reasoner():
     return _reasoner_singleton
 
 
-def run_fleet_analysis(aircraft_id):
+def run_fleet_analysis(aircraft_id, company_id=None):
     """
     Run full ontology analysis on aircraft's latest telemetry.
 
     Args:
         aircraft_id (str): Aircraft to analyze
+        company_id (int, optional): Tenant scope. Defaults to the current
+            session's company; callers from background threads (diagnostics
+            jobs) must pass it explicitly since the Flask session is not
+            available on those threads.
 
     Returns:
         list: Analysis results for all components
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     reasoner = get_reasoner()
     results = []
 
@@ -328,20 +335,20 @@ def run_fleet_analysis(aircraft_id):
             SELECT t1.reading_value, t1.sensor_type, c.component_id 
             FROM SensorTelemetry t1 
             JOIN Components c ON t1.component_id = c.component_id 
-            WHERE c.aircraft_id = ? 
+            WHERE c.aircraft_id = ? AND c.company_id = ?
               AND t1.recorded_at = (
                   SELECT MAX(t2.recorded_at) 
                   FROM SensorTelemetry t2 
                   WHERE t2.component_id = t1.component_id 
                     AND t2.sensor_type = t1.sensor_type
               )
-        ''', (aircraft_id,)).fetchall()
+        ''', (aircraft_id, company_id)).fetchall()
 
         if not latest_telemetry:
             print(f"⚠️ No telemetry data found for {aircraft_id}")
             conn.execute(
-                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
-                ('System', 'Standby', f"No telemetry data found for {aircraft_id} to analyze.")
+                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text, company_id) VALUES (?, ?, ?, ?)',
+                ('System', 'Standby', f"No telemetry data found for {aircraft_id} to analyze.", company_id)
             )
             conn.commit()
             return results
@@ -357,24 +364,24 @@ def run_fleet_analysis(aircraft_id):
         for analysis in results:
             # Log analysis result
             conn.execute(
-                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
-                (analysis['component_id'], analysis['action'], analysis['explanation'])
+                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text, company_id) VALUES (?, ?, ?, ?)',
+                (analysis['component_id'], analysis['action'], analysis['explanation'], company_id)
             )
 
             # Create fault if detected
             if analysis['fault_detected']:
                 existing = conn.execute(
-                    'SELECT * FROM Faults WHERE component_id = ? AND fault_type = ? AND resolved = 0',
-                    (analysis['component_id'], analysis['fault_detected'])
+                    'SELECT * FROM Faults WHERE component_id = ? AND fault_type = ? AND resolved = 0 AND company_id = ?',
+                    (analysis['component_id'], analysis['fault_detected'], company_id)
                 ).fetchone()
 
                 if not existing:
                     try:
                         conn.execute(
-                            'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference) '
-                            'VALUES (?, ?, ?, 0, ?)',
+                            'INSERT INTO Faults (component_id, fault_type, severity, resolved, amm_reference, company_id) '
+                            'VALUES (?, ?, ?, 0, ?, ?)',
                             (analysis['component_id'], analysis['fault_detected'],
-                             analysis['severity'], analysis['amm_reference'])
+                             analysis['severity'], analysis['amm_reference'], company_id)
                         )
                     except sqlite3.IntegrityError:
                         # A concurrent reasoner run already recorded this open

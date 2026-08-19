@@ -10,6 +10,7 @@ from app.utils import create_digital_signature
 from app.cbr_engine import log_maintenance_action
 from app.license_compliance import check_fault_signoff
 from app.camp_extensions import imdf
+from app.auth import get_current_company_id
 
 bp = Blueprint('fault_resolution', __name__)
 
@@ -25,10 +26,15 @@ def resolve_fault(fault_id):
     mechanic_id = request.form.get('mechanic_id')
     component_replaced = request.form.get('component_replaced') == '1'
     installed_part_serial = request.form.get('installed_part_serial') or None
+    company_id = get_current_company_id()
 
     with get_db() as conn:
-        fault = conn.execute('SELECT * FROM Faults WHERE fault_id = ?', (fault_id,)).fetchone()
-        mechanic = conn.execute('SELECT * FROM Engineers WHERE emp_id = ?', (mechanic_id,)).fetchone()
+        fault = conn.execute(
+            'SELECT * FROM Faults WHERE fault_id = ? AND company_id = ?', (fault_id, company_id)
+        ).fetchone()
+        mechanic = conn.execute(
+            'SELECT * FROM Engineers WHERE emp_id = ? AND company_id = ?', (mechanic_id, company_id)
+        ).fetchone()
         
         if not fault or not mechanic:
             return "Error: Fault or Mechanic not found.", 400
@@ -92,8 +98,8 @@ def resolve_fault(fault_id):
         conn.execute('''
             UPDATE Faults 
             SET resolved = 1, resolved_by = ?, resolved_date = datetime('now', 'localtime') 
-            WHERE fault_id = ?
-        ''', (digital_signature, fault_id))
+            WHERE fault_id = ? AND company_id = ?
+        ''', (digital_signature, fault_id, company_id))
         
         # 5. Auto-close PIREP if applicable
         # (bug fix: PilotReports' primary key column is `report_id`, not `id` -
@@ -105,16 +111,16 @@ def resolve_fault(fault_id):
             exact_pirep_id = fault['amm_reference'].split("_")[-1]
             try:
                 conn.execute(
-                    "UPDATE PilotReports SET status = 'Closed' WHERE report_id = ?",
-                    (exact_pirep_id,)
+                    "UPDATE PilotReports SET status = 'Closed' WHERE report_id = ? AND company_id = ?",
+                    (exact_pirep_id, company_id)
                 )
             except Exception:
                 pass
         
         # 6. Get aircraft registration
         comp = conn.execute(
-            'SELECT aircraft_id FROM Components WHERE component_id = ?',
-            (fault['component_id'],)
+            'SELECT aircraft_id FROM Components WHERE component_id = ? AND company_id = ?',
+            (fault['component_id'], company_id)
         ).fetchone()
         
         ac_reg = comp['aircraft_id'].replace('Aircraft_', '') if comp else "UNKNOWN"
@@ -130,40 +136,47 @@ def resolve_fault(fault_id):
         removed_part_serial = None
         if component_replaced:
             removed_row = conn.execute(
-                "SELECT part_serial FROM PartRecords WHERE component_id = ? AND status = 'Removed' "
+                "SELECT part_serial FROM PartRecords WHERE component_id = ? AND company_id = ? "
+                "AND status = 'Removed' "
                 "ORDER BY removed_date DESC LIMIT 1",
-                (fault['component_id'],)
+                (fault['component_id'], company_id)
             ).fetchone()
             removed_part_serial = removed_row['part_serial'] if removed_row else None
 
             if installed_part_serial:
+                part_owned = conn.execute(
+                    "SELECT 1 FROM PartRecords WHERE part_serial = ? AND company_id = ?",
+                    (installed_part_serial, company_id)
+                ).fetchone()
+                if not part_owned:
+                    return "Error: Installed part not found in this company's inventory.", 400
                 conn.execute(
                     "UPDATE PartRecords SET status = 'In Service', installed_date = datetime('now','localtime') "
-                    "WHERE part_serial = ?",
-                    (installed_part_serial,)
+                    "WHERE part_serial = ? AND company_id = ?",
+                    (installed_part_serial, company_id)
                 )
                 if removed_part_serial:
                     conn.execute(
-                        "UPDATE PartRecords SET replaced_by_serial = ? WHERE part_serial = ?",
-                        (installed_part_serial, removed_part_serial)
+                        "UPDATE PartRecords SET replaced_by_serial = ? WHERE part_serial = ? AND company_id = ?",
+                        (installed_part_serial, removed_part_serial, company_id)
                     )
 
         crs_cursor = conn.execute('''
             INSERT INTO CRS_Records
                 (aircraft_reg, aircraft_id, reference_id, description, signed_off_by,
                  work_order_number, ata_chapter, component_replaced,
-                 removed_part_serial, installed_part_serial, evidence_chain_ref)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 removed_part_serial, installed_part_serial, evidence_chain_ref, company_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (ac_reg, comp['aircraft_id'] if comp else None, f"FAULT-{fault_id}", f"Cleared {fault['fault_type']}", digital_signature,
               work_order_number, ata_chapter, 1 if component_replaced else 0,
-              removed_part_serial, installed_part_serial, comp['aircraft_id'] if comp else None))
+              removed_part_serial, installed_part_serial, comp['aircraft_id'] if comp else None, company_id))
         crs_id = crs_cursor.lastrowid
         
         # 8. Log to maintenance history
-        log_maintenance_action(ac_reg, f"Resolved Fault: {fault['fault_type']}", digital_signature, conn=conn)
+        log_maintenance_action(ac_reg, f"Resolved Fault: {fault['fault_type']}", digital_signature, conn=conn, company_id=company_id)
         
         # 9. Simulate digital twin sensor reset
-        _update_sensor_readings(conn, fault)
+        _update_sensor_readings(conn, fault, company_id)
         
         conn.commit()
         target_tail = comp['aircraft_id'] if comp else None
@@ -181,35 +194,35 @@ def resolve_fault(fault_id):
     return redirect(url_for('dashboard.dashboard', tail=target_tail))
 
 
-def _update_sensor_readings(conn, fault):
+def _update_sensor_readings(conn, fault, company_id):
     """Update sensor readings to simulate completed repair."""
     if "Overheat" in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Thermocouple', 450.0)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Thermocouple', 450.0, ?)",
+            (fault['component_id'], company_id)
         )
     elif "Vibration" in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Vibration Sensor', 1.2)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Vibration Sensor', 1.2, ?)",
+            (fault['component_id'], company_id)
         )
     elif "Leak" in fault['fault_type'] or "Pressure" in fault['fault_type'] and "Oil" not in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Fuel Pressure Sensor', 45.0)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Fuel Pressure Sensor', 45.0, ?)",
+            (fault['component_id'], company_id)
         )
     elif "Oil" in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Oil Pressure Sensor', 55.0)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Oil Pressure Sensor', 55.0, ?)",
+            (fault['component_id'], company_id)
         )
     elif "Overstrain" in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Strain Gauge', 1.0)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Strain Gauge', 1.0, ?)",
+            (fault['component_id'], company_id)
         )
     elif "Fuel_Temp" in fault['fault_type'] or "FuelTemp" in fault['fault_type']:
         conn.execute(
-            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, 'Fuel Temperature Sensor', 15.0)",
-            (fault['component_id'],)
+            "INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, 'Fuel Temperature Sensor', 15.0, ?)",
+            (fault['component_id'], company_id)
         )

@@ -1,6 +1,7 @@
 """Routes for maintenance document generation + the paper-audit record log (Feature #4)."""
 from flask import Blueprint, render_template, send_file, abort
 from app.camp_extensions import maintenance_documents as docs
+from app.auth import get_current_company_id
 
 bp = Blueprint('maintenance_documents', __name__)
 
@@ -9,7 +10,7 @@ bp = Blueprint('maintenance_documents', __name__)
 def maintenance_documents_page():
     """The 'record log' - a permanent register of every certificate ever issued."""
     docs.ensure_documents_schema()
-    records = docs.list_documents()
+    records = docs.list_documents(company_id=get_current_company_id())
     return render_template('extensions/maintenance_documents.html', records=records)
 
 
@@ -19,7 +20,7 @@ def generate_document(source_type, source_id):
     if source_type not in ('crs', 'maintenance_log', 'fault'):
         abort(404)
     try:
-        result = docs.generate_document(source_type, source_id)
+        result = docs.generate_document(source_type, source_id, company_id=get_current_company_id())
     except ValueError as e:
         return str(e), 404
     except RuntimeError as e:

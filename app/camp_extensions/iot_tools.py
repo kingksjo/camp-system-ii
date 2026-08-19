@@ -20,6 +20,7 @@ sign-off step ever sees it.
 """
 import uuid
 from app.database import get_db
+from app.auth import get_current_company_id
 
 
 def ensure_iot_schema():
@@ -29,14 +30,16 @@ def ensure_iot_schema():
     run_migrations()
 
 
-def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device_name, ingestion_source, unit='Nm'):
+def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device_name, ingestion_source, unit='Nm', company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_iot_schema()
     reading_id = uuid.uuid4().hex
 
     with get_db() as conn:
         if tool_id:
             tool = conn.execute(
-                'SELECT 1 FROM ToolCrib WHERE tool_id = ?', (tool_id,)
+                'SELECT 1 FROM ToolCrib WHERE tool_id = ? AND company_id = ?', (tool_id, company_id)
             ).fetchone()
             if not tool:
                 raise ValueError(f"Unknown tool {tool_id}")
@@ -48,7 +51,7 @@ def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device
                 raise ValueError(f"Unknown task {task_id}")
         if component_id:
             component = conn.execute(
-                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+                'SELECT 1 FROM Components WHERE component_id = ? AND company_id = ?', (component_id, company_id)
             ).fetchone()
             if not component:
                 raise ValueError(f"Unknown component {component_id}")
@@ -64,16 +67,17 @@ def ingest_reading(tool_id, task_id, component_id, torque_value, spec_id, device
 
         conn.execute('''
             INSERT INTO IoTToolReadings
-                (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source))
+                (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source, company_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (reading_id, tool_id, task_id, component_id, torque_value, unit, spec_id, in_spec, device_name, ingestion_source, company_id))
 
         if in_spec == 0:
             conn.execute(
-                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
+                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text, company_id) VALUES (?, ?, ?, ?)',
                 (component_id or 'Unknown', 'Torque Out Of Spec',
                  f"Tool {tool_id} recorded {torque_value}{unit}, outside spec "
-                 f"{spec['min_torque']}-{spec['max_torque']}{unit} for {spec['fastener_description']}.")
+                 f"{spec['min_torque']}-{spec['max_torque']}{unit} for {spec['fastener_description']}.",
+                 company_id)
             )
         conn.commit()
 

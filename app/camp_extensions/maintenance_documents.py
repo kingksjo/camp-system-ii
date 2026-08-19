@@ -28,6 +28,7 @@ import uuid
 from datetime import datetime
 
 from app.database import get_db
+from app.auth import get_current_company_id
 
 # Absolute path, matching how app/__init__.py itself computes the project's
 # static folder (root_dir = parent of the app/ package) - send_file()
@@ -84,12 +85,14 @@ def _component_technical_rows(component_row):
     return rows
 
 
-def _fetch_source_record(conn, source_type, source_id):
+def _fetch_source_record(conn, source_type, source_id, company_id):
     """Look up the record + (optional) linked component for a CRS or maintenance-log entry."""
     component_row = None
 
     if source_type == 'crs':
-        record = conn.execute('SELECT * FROM CRS_Records WHERE id = ?', (source_id,)).fetchone()
+        record = conn.execute(
+            'SELECT * FROM CRS_Records WHERE id = ? AND company_id = ?', (source_id, company_id)
+        ).fetchone()
         if not record:
             return None, None
         header = {
@@ -115,11 +118,13 @@ def _fetch_source_record(conn, source_type, source_id):
         removed_part, installed_part = None, None
         if 'removed_part_serial' in record_keys and record['removed_part_serial']:
             removed_part = conn.execute(
-                'SELECT * FROM PartRecords WHERE part_serial = ?', (record['removed_part_serial'],)
+                'SELECT * FROM PartRecords WHERE part_serial = ? AND company_id = ?',
+                (record['removed_part_serial'], company_id)
             ).fetchone()
         if 'installed_part_serial' in record_keys and record['installed_part_serial']:
             installed_part = conn.execute(
-                'SELECT * FROM PartRecords WHERE part_serial = ?', (record['installed_part_serial'],)
+                'SELECT * FROM PartRecords WHERE part_serial = ? AND company_id = ?',
+                (record['installed_part_serial'], company_id)
             ).fetchone()
         if removed_part or installed_part:
             header['removed_part'] = removed_part
@@ -128,15 +133,21 @@ def _fetch_source_record(conn, source_type, source_id):
         # Best-effort: CRS reference_id is often "FAULT-<fault_id>" - pull the component if so
         if record['reference_id'] and record['reference_id'].startswith('FAULT-'):
             fault_id = record['reference_id'].split('-')[-1]
-            fault = conn.execute('SELECT * FROM Faults WHERE fault_id = ?', (fault_id,)).fetchone()
+            fault = conn.execute(
+                'SELECT * FROM Faults WHERE fault_id = ? AND company_id = ?', (fault_id, company_id)
+            ).fetchone()
             if fault:
                 component_row = conn.execute(
-                    'SELECT * FROM Components WHERE component_id = ?', (fault['component_id'],)
+                    'SELECT * FROM Components WHERE component_id = ? AND company_id = ?',
+                    (fault['component_id'], company_id)
                 ).fetchone()
         return header, component_row
 
     elif source_type == 'maintenance_log':
-        record = conn.execute('SELECT * FROM MaintenanceHistory WHERE log_id = ?', (source_id,)).fetchone()
+        record = conn.execute(
+            'SELECT * FROM MaintenanceHistory WHERE log_id = ? AND company_id = ?',
+            (source_id, company_id)
+        ).fetchone()
         if not record:
             return None, None
         header = {
@@ -150,11 +161,14 @@ def _fetch_source_record(conn, source_type, source_id):
         return header, None
 
     elif source_type == 'fault':
-        fault = conn.execute('SELECT * FROM Faults WHERE fault_id = ?', (source_id,)).fetchone()
+        fault = conn.execute(
+            'SELECT * FROM Faults WHERE fault_id = ? AND company_id = ?', (source_id, company_id)
+        ).fetchone()
         if not fault:
             return None, None
         component_row = conn.execute(
-            'SELECT * FROM Components WHERE component_id = ?', (fault['component_id'],)
+            'SELECT * FROM Components WHERE component_id = ? AND company_id = ?',
+            (fault['component_id'], company_id)
         ).fetchone()
         aircraft_reg = component_row['aircraft_id'].replace('Aircraft_', '') if component_row else 'Unknown'
         header = {
@@ -170,23 +184,25 @@ def _fetch_source_record(conn, source_type, source_id):
     return None, None
 
 
-def generate_document(source_type, source_id):
+def generate_document(source_type, source_id, company_id=None):
     """
     Generate (or return the already-generated) PDF for a CRS/maintenance-log
     record, log it into MaintenanceDocuments for the paper-audit trail, and
     return {'file_path', 'document_id', 'already_existed'}.
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_documents_schema()
 
     with get_db() as conn:
         existing = conn.execute(
-            'SELECT * FROM MaintenanceDocuments WHERE source_type = ? AND source_id = ?',
-            (source_type, str(source_id))
+            'SELECT * FROM MaintenanceDocuments WHERE source_type = ? AND source_id = ? AND company_id = ?',
+            (source_type, str(source_id), company_id)
         ).fetchone()
         if existing and os.path.exists(existing['file_path']):
             return {'file_path': existing['file_path'], 'document_id': existing['document_id'], 'already_existed': True}
 
-        header, component_row = _fetch_source_record(conn, source_type, source_id)
+        header, component_row = _fetch_source_record(conn, source_type, source_id, company_id)
         if not header:
             raise ValueError(f"No {source_type} record found for id={source_id}")
 
@@ -202,9 +218,9 @@ def generate_document(source_type, source_id):
     with get_db() as conn:
         try:
             conn.execute('''
-                INSERT INTO MaintenanceDocuments (document_id, source_type, source_id, aircraft_reg, file_path, document_hash)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (document_id, source_type, str(source_id), header['aircraft_reg'], file_path, document_hash))
+                INSERT INTO MaintenanceDocuments (document_id, source_type, source_id, aircraft_reg, file_path, document_hash, company_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (document_id, source_type, str(source_id), header['aircraft_reg'], file_path, document_hash, company_id))
             conn.commit()
         except sqlite3.IntegrityError:
             # Lost the race to a concurrent generate_document() for the same
@@ -216,8 +232,8 @@ def generate_document(source_type, source_id):
             except OSError:
                 pass
             existing = conn.execute(
-                'SELECT * FROM MaintenanceDocuments WHERE source_type = ? AND source_id = ?',
-                (source_type, str(source_id))
+                'SELECT * FROM MaintenanceDocuments WHERE source_type = ? AND source_id = ? AND company_id = ?',
+                (source_type, str(source_id), company_id)
             ).fetchone()
             if existing and os.path.exists(existing['file_path']):
                 return {'file_path': existing['file_path'], 'document_id': existing['document_id'], 'already_existed': True}
@@ -338,7 +354,12 @@ def _render_pdf(file_path, header, component_row, document_id):
     doc.build(story)
 
 
-def list_documents():
+def list_documents(company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_documents_schema()
     with get_db() as conn:
-        return conn.execute('SELECT * FROM MaintenanceDocuments ORDER BY generated_at DESC').fetchall()
+        return conn.execute(
+            'SELECT * FROM MaintenanceDocuments WHERE company_id = ? ORDER BY generated_at DESC',
+            (company_id,)
+        ).fetchall()

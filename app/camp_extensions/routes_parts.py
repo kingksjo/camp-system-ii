@@ -9,6 +9,7 @@ redirects there, same pattern already used for /schedule/fullcalendar and
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from app.database import get_db
 from app.camp_extensions import parts_traceability as parts
+from app.auth import get_current_company_id
 
 bp = Blueprint('parts', __name__)
 
@@ -28,6 +29,7 @@ def parts_register():
             aircraft_id=request.form.get('aircraft_id') or None,
             easa_form1_ref=request.form.get('easa_form1_ref'),
             manufactured_date=request.form.get('manufactured_date'),
+            company_id=get_current_company_id(),
         )
     except ValueError as e:
         flash(str(e), 'error')
@@ -49,14 +51,17 @@ def api_scan_part():
     if not part_serial:
         return jsonify({'status': 'error', 'message': 'part_serial is required'}), 400
 
-    result = parts.scan_part(part_serial, scan_type, scanned_by)
+    result = parts.scan_part(part_serial, scan_type, scanned_by, company_id=get_current_company_id())
     return jsonify({'status': 'ok', **result})
 
 
 @bp.route('/api/parts/<part_serial>')
 def api_get_part(part_serial):
     with get_db() as conn:
-        part = conn.execute('SELECT * FROM PartRecords WHERE part_serial = ?', (part_serial,)).fetchone()
+        part = conn.execute(
+            'SELECT * FROM PartRecords WHERE part_serial = ? AND company_id = ?',
+            (part_serial, get_current_company_id())
+        ).fetchone()
     if not part:
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
     return jsonify(dict(part))

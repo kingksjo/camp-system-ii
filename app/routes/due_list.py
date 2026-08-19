@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for
 from app.database import get_db
 from app.utils import create_digital_signature
 from app.cbr_engine import log_maintenance_action
+from app.auth import get_current_company_id
 
 bp = Blueprint('due_list', __name__)
 
@@ -13,18 +14,27 @@ bp = Blueprint('due_list', __name__)
 @bp.route('/due_list')
 def due_list():
     """Display smart due list with maintenance projections."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        aircraft = conn.execute('SELECT * FROM Aircraft').fetchall()
-        tasks = conn.execute('SELECT * FROM MaintenanceTasks').fetchall()
+        aircraft = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
+        tasks = conn.execute(
+            'SELECT * FROM MaintenanceTasks WHERE company_id = ?', (company_id,)
+        ).fetchall()
         
         try:
-            engineers = conn.execute("SELECT * FROM Engineers WHERE status = 'Active'").fetchall()
+            engineers = conn.execute(
+                "SELECT * FROM Engineers WHERE company_id = ? AND status = 'Active'",
+                (company_id,)
+            ).fetchall()
         except Exception:
             engineers = []
         
         # Get completed tasks for reference
         completed_history = conn.execute(
-            'SELECT aircraft_reg, task_description FROM MaintenanceHistory'
+            'SELECT aircraft_reg, task_description FROM MaintenanceHistory WHERE company_id = ?',
+            (company_id,)
         ).fetchall()
         completed_set = {
             f"{r['aircraft_reg']}_{r['task_description'].split(':')[0].replace('Completed ', '')}"
@@ -72,23 +82,28 @@ def due_list():
 def sign_off_due(registration, task_id):
     """Sign off a completed maintenance task."""
     emp_id = request.form.get('engineer_id')
+    company_id = get_current_company_id()
     
     with get_db() as conn:
         engineer = conn.execute(
-            'SELECT full_name, license_number, stamp_number FROM Engineers WHERE emp_id = ?',
-            (emp_id,)
+            'SELECT full_name, license_number, stamp_number FROM Engineers '
+            'WHERE emp_id = ? AND company_id = ?',
+            (emp_id, company_id)
         ).fetchone()
         
         task = conn.execute(
-            'SELECT task_name FROM MaintenanceTasks WHERE task_id = ?',
-            (task_id,)
+            'SELECT task_name FROM MaintenanceTasks WHERE task_id = ? AND company_id = ?',
+            (task_id, company_id)
         ).fetchone()
         
         if engineer and task:
             digital_signature = create_digital_signature(engineer)
             task_desc = f"Completed {task_id}: {task['task_name']}"
             
-            log_maintenance_action(registration, task_desc, digital_signature, conn=conn)
+            log_maintenance_action(
+                registration, task_desc, digital_signature,
+                conn=conn, company_id=company_id,
+            )
         
         conn.commit()
     

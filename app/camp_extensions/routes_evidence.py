@@ -11,6 +11,7 @@ actually submit to.
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 from app.database import get_db
 from app.camp_extensions import digital_evidence as eviq
+from app.auth import get_current_company_id
 
 bp = Blueprint('evidence', __name__)
 
@@ -31,12 +32,14 @@ def evidence_upload():
     captured_at_client = request.form.get('captured_at') or None
     notes = request.form.get('notes', '')
 
+    company_id = get_current_company_id()
     file_storage = request.files.get('evidence_file')
     try:
         eviq.store_evidence(
             file_storage, aircraft_id, fault_id, component_id, uploaded_by,
             manual_lat=manual_lat, manual_lon=manual_lon,
             captured_at_client=captured_at_client, notes=notes,
+            company_id=company_id,
         )
     except ValueError as e:
         return str(e), 400
@@ -48,4 +51,4 @@ def evidence_upload():
 
 @bp.route('/api/evidence/<aircraft_id>/verify')
 def api_verify_chain(aircraft_id):
-    return jsonify(eviq.verify_chain(aircraft_id))
+    return jsonify(eviq.verify_chain(aircraft_id, company_id=get_current_company_id()))

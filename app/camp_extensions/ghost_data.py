@@ -23,6 +23,7 @@ Ghost categories detected:
                          being treated as live data by the reasoner).
 """
 from app.database import get_db
+from app.auth import get_current_company_id
 
 FROZEN_STREAK_THRESHOLD = 20
 
@@ -34,14 +35,14 @@ def ensure_ghost_schema():
     run_migrations()
 
 
-def _log(conn, category, target_table, target_ref, detail, action):
+def _log(conn, category, target_table, target_ref, detail, action, company_id):
     conn.execute(
-        'INSERT INTO GhostDataLog (category, target_table, target_ref, detail, action) VALUES (?, ?, ?, ?, ?)',
-        (category, target_table, target_ref, detail, action)
+        'INSERT INTO GhostDataLog (category, target_table, target_ref, detail, action, company_id) VALUES (?, ?, ?, ?, ?, ?)',
+        (category, target_table, target_ref, detail, action, company_id)
     )
 
 
-def scan(apply_fixes=False):
+def scan(apply_fixes=False, company_id=None):
     """
     Scan for ghost data. When apply_fixes is False this is a pure dry-run
     (nothing is changed, only reported). When True, safe fixes are applied:
@@ -49,67 +50,80 @@ def scan(apply_fixes=False):
     only ever flagged (never auto-deleted - a real stuck sensor is itself
     a maintenance finding, not something to quietly delete).
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_ghost_schema()
     findings = {'ghost_pireps': [], 'orphaned_telemetry': [], 'orphaned_faults': [], 'frozen_sensors': []}
 
     with get_db() as conn:
         # 1) Ghost PIREPs
-        pireps = conn.execute("SELECT * FROM PilotReports WHERE status = 'Open'").fetchall()
+        pireps = conn.execute(
+            "SELECT * FROM PilotReports WHERE status = 'Open' AND company_id = ?", (company_id,)
+        ).fetchall()
         for p in pireps:
             fault = conn.execute(
-                "SELECT * FROM Faults WHERE amm_reference = ?", (f"PIREP_ID_{p['report_id']}",)
+                "SELECT * FROM Faults WHERE amm_reference = ? AND company_id = ?", (f"PIREP_ID_{p['report_id']}", company_id)
             ).fetchone()
             if fault and fault['resolved']:
                 detail = f"PIREP #{p['report_id']} linked to resolved Fault #{fault['fault_id']} but still Open."
                 findings['ghost_pireps'].append({'report_id': p['report_id'], 'detail': detail})
                 if apply_fixes:
-                    conn.execute("UPDATE PilotReports SET status = 'Closed' WHERE report_id = ?", (p['report_id'],))
-                    _log(conn, 'GhostPIREP', 'PilotReports', str(p['report_id']), detail, 'AutoClosed')
+                    conn.execute(
+                        "UPDATE PilotReports SET status = 'Closed' WHERE report_id = ? AND company_id = ?",
+                        (p['report_id'], company_id)
+                    )
+                    _log(conn, 'GhostPIREP', 'PilotReports', str(p['report_id']), detail, 'AutoClosed', company_id)
                 else:
-                    _log(conn, 'GhostPIREP', 'PilotReports', str(p['report_id']), detail, 'Flagged')
+                    _log(conn, 'GhostPIREP', 'PilotReports', str(p['report_id']), detail, 'Flagged', company_id)
 
         # 2) Orphaned telemetry
         orphan_telemetry = conn.execute('''
             SELECT t.telemetry_id, t.component_id FROM SensorTelemetry t
             LEFT JOIN Components c ON t.component_id = c.component_id
-            WHERE c.component_id IS NULL
-        ''').fetchall()
+            WHERE c.component_id IS NULL AND t.company_id = ?
+        ''', (company_id,)).fetchall()
         for row in orphan_telemetry:
             detail = f"SensorTelemetry #{row['telemetry_id']} references missing component '{row['component_id']}'."
             findings['orphaned_telemetry'].append({'telemetry_id': row['telemetry_id'], 'detail': detail})
             if apply_fixes:
-                conn.execute("DELETE FROM SensorTelemetry WHERE telemetry_id = ?", (row['telemetry_id'],))
-                _log(conn, 'OrphanedTelemetry', 'SensorTelemetry', str(row['telemetry_id']), detail, 'Purged')
+                conn.execute(
+                    "DELETE FROM SensorTelemetry WHERE telemetry_id = ? AND company_id = ?", (row['telemetry_id'], company_id)
+                )
+                _log(conn, 'OrphanedTelemetry', 'SensorTelemetry', str(row['telemetry_id']), detail, 'Purged', company_id)
             else:
-                _log(conn, 'OrphanedTelemetry', 'SensorTelemetry', str(row['telemetry_id']), detail, 'Flagged')
+                _log(conn, 'OrphanedTelemetry', 'SensorTelemetry', str(row['telemetry_id']), detail, 'Flagged', company_id)
 
         # 3) Orphaned faults
         orphan_faults = conn.execute('''
             SELECT f.fault_id, f.component_id FROM Faults f
             LEFT JOIN Components c ON f.component_id = c.component_id
-            WHERE c.component_id IS NULL
-        ''').fetchall()
+            WHERE c.component_id IS NULL AND f.company_id = ?
+        ''', (company_id,)).fetchall()
         for row in orphan_faults:
             detail = f"Fault #{row['fault_id']} references missing component '{row['component_id']}'."
             findings['orphaned_faults'].append({'fault_id': row['fault_id'], 'detail': detail})
             if apply_fixes:
-                conn.execute("DELETE FROM Faults WHERE fault_id = ?", (row['fault_id'],))
-                _log(conn, 'OrphanedFault', 'Faults', str(row['fault_id']), detail, 'Purged')
+                conn.execute(
+                    "DELETE FROM Faults WHERE fault_id = ? AND company_id = ?", (row['fault_id'], company_id)
+                )
+                _log(conn, 'OrphanedFault', 'Faults', str(row['fault_id']), detail, 'Purged', company_id)
             else:
-                _log(conn, 'OrphanedFault', 'Faults', str(row['fault_id']), detail, 'Flagged')
+                _log(conn, 'OrphanedFault', 'Faults', str(row['fault_id']), detail, 'Flagged', company_id)
 
         # 4) Frozen sensors (never auto-deleted, always just flagged - it's a real finding)
-        components = conn.execute('SELECT DISTINCT component_id FROM SensorTelemetry').fetchall()
+        components = conn.execute(
+            'SELECT DISTINCT component_id FROM SensorTelemetry WHERE company_id = ?', (company_id,)
+        ).fetchall()
         for comp in components:
             sensor_types = conn.execute(
-                'SELECT DISTINCT sensor_type FROM SensorTelemetry WHERE component_id = ?',
-                (comp['component_id'],)
+                'SELECT DISTINCT sensor_type FROM SensorTelemetry WHERE component_id = ? AND company_id = ?',
+                (comp['component_id'], company_id)
             ).fetchall()
             for st in sensor_types:
                 recent = conn.execute(
-                    'SELECT reading_value FROM SensorTelemetry WHERE component_id = ? AND sensor_type = ? '
+                    'SELECT reading_value FROM SensorTelemetry WHERE component_id = ? AND sensor_type = ? AND company_id = ? '
                     'ORDER BY recorded_at DESC LIMIT ?',
-                    (comp['component_id'], st['sensor_type'], FROZEN_STREAK_THRESHOLD)
+                    (comp['component_id'], st['sensor_type'], company_id, FROZEN_STREAK_THRESHOLD)
                 ).fetchall()
                 if len(recent) == FROZEN_STREAK_THRESHOLD and len({r['reading_value'] for r in recent}) == 1:
                     detail = (f"{comp['component_id']} / {st['sensor_type']} has reported the identical value "
@@ -118,7 +132,7 @@ def scan(apply_fixes=False):
                         'component_id': comp['component_id'], 'sensor_type': st['sensor_type'], 'detail': detail
                     })
                     _log(conn, 'FrozenSensor', 'SensorTelemetry',
-                         f"{comp['component_id']}/{st['sensor_type']}", detail, 'Flagged')
+                         f"{comp['component_id']}/{st['sensor_type']}", detail, 'Flagged', company_id)
 
         conn.commit()
 

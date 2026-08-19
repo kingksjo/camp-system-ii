@@ -10,6 +10,7 @@ drag to reschedule, resize to extend) on top of the existing data model.
 from flask import Blueprint, render_template, request, jsonify, redirect
 from datetime import datetime
 from app.database import get_db
+from app.auth import get_current_company_id
 
 bp = Blueprint('fc_schedule', __name__)
 
@@ -45,7 +46,8 @@ def api_list_events():
     """FullCalendar JSON event feed."""
     with get_db() as conn:
         rows = conn.execute(
-            'SELECT rowid as record_id, * FROM Schedule ORDER BY start_time ASC'
+            'SELECT rowid as record_id, * FROM Schedule WHERE company_id = ? ORDER BY start_time ASC',
+            (get_current_company_id(),)
         ).fetchall()
 
     events = []
@@ -70,6 +72,7 @@ def api_list_events():
 @bp.route('/api/schedule/events', methods=['POST'])
 def api_create_event():
     ensure_fc_schema()
+    company_id = get_current_company_id()
     data = request.get_json(silent=True) or request.form
     aircraft_id = data.get('aircraft_id')
     event_type = data.get('event_type', 'Maintenance')
@@ -90,15 +93,15 @@ def api_create_event():
 
     with get_db() as conn:
         aircraft = conn.execute(
-            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
         ).fetchone()
         if not aircraft:
             return jsonify({'status': 'error', 'message': f'Unknown aircraft {aircraft_id}'}), 400
 
         cur = conn.execute(
-            'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color, status, source, related_reference) '
-            'VALUES (?, ?, ?, ?, ?, ?, "Scheduled", "fullcalendar", ?)',
-            (aircraft_id, event_type, title, _norm(start_time), _norm(end_time), color, related_reference)
+            'INSERT INTO Schedule (aircraft_id, event_type, title, start_time, end_time, color, status, source, related_reference, company_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, "Scheduled", "fullcalendar", ?, ?)',
+            (aircraft_id, event_type, title, _norm(start_time), _norm(end_time), color, related_reference, company_id)
         )
         conn.commit()
         new_id = cur.lastrowid
@@ -121,8 +124,8 @@ def api_move_event(record_id):
 
     with get_db() as conn:
         conn.execute(
-            'UPDATE Schedule SET start_time = ?, end_time = ? WHERE rowid = ?',
-            (start_time, end_time, record_id)
+            'UPDATE Schedule SET start_time = ?, end_time = ? WHERE rowid = ? AND company_id = ?',
+            (start_time, end_time, record_id, get_current_company_id())
         )
         conn.commit()
 
@@ -134,8 +137,8 @@ def api_cancel_event(record_id):
     """Manual cancel button - distinct from the automatic CRS kill switch (see kill_switch.py)."""
     with get_db() as conn:
         conn.execute(
-            "UPDATE Schedule SET status = 'Cancelled-Manual' WHERE rowid = ?",
-            (record_id,)
+            "UPDATE Schedule SET status = 'Cancelled-Manual' WHERE rowid = ? AND company_id = ?",
+            (record_id, get_current_company_id())
         )
         conn.commit()
     return jsonify({'status': 'ok'})

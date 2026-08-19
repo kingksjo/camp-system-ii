@@ -10,6 +10,7 @@ route redirects into the merged tab for anyone with it bookmarked.
 """
 from flask import Blueprint, redirect
 from app.camp_extensions import kill_switch as ks
+from app.auth import get_current_company_id
 
 bp = Blueprint('kill_switch', __name__)
 
@@ -21,5 +22,5 @@ def kill_switch_page():
 
 @bp.route('/killswitch/scan-now', methods=['POST'])
 def kill_switch_scan_now():
-    ks.run_kill_switch_scan()
+    ks.run_kill_switch_scan(company_id=get_current_company_id())
     return redirect('/calendar#activity-log')

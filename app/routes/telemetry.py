@@ -52,6 +52,7 @@ import random
 import json
 from flask import Blueprint, render_template, request, jsonify
 from app.database import get_db
+from app.auth import get_current_company_id
 
 bp = Blueprint('telemetry', __name__)
 
@@ -182,13 +183,15 @@ def sensors_for_component(component_type):
     return CATEGORY_SENSOR_MAP.get(category, CATEGORY_SENSOR_MAP['_default'])
 
 
-def _aircraft_exists(conn, aircraft_id):
+def _aircraft_exists(conn, aircraft_id, company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     return conn.execute(
-        'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+        'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
     ).fetchone() is not None
 
 
-def _get_or_create_components(conn, aircraft_id):
+def _get_or_create_components(conn, aircraft_id, company_id=None):
     """Get components for an aircraft, seeding the canonical airframe set if none exist yet.
 
     Only ever seeds for an aircraft_id that actually exists in the Aircraft
@@ -197,11 +200,13 @@ def _get_or_create_components(conn, aircraft_id):
     tail) accumulate before the Round-3 cleanup. Callers should check
     _aircraft_exists() first and return 404 rather than relying on this
     silently returning an empty list."""
-    if not _aircraft_exists(conn, aircraft_id):
+    if company_id is None:
+        company_id = get_current_company_id()
+    if not _aircraft_exists(conn, aircraft_id, company_id):
         return []
 
     components = conn.execute(
-        'SELECT component_id, component_type FROM Components WHERE aircraft_id = ?',
+        'SELECT component_id, component_type, company_id FROM Components WHERE aircraft_id = ?',
         (aircraft_id,)
     ).fetchall()
 
@@ -210,12 +215,12 @@ def _get_or_create_components(conn, aircraft_id):
         for component_type, id_prefix in CANONICAL_COMPONENT_TEMPLATE:
             component_id = f'{id_prefix}_{tail_suffix}'
             conn.execute(
-                'INSERT OR IGNORE INTO Components (component_id, aircraft_id, component_type) VALUES (?, ?, ?)',
-                (component_id, aircraft_id, component_type)
+                'INSERT OR IGNORE INTO Components (component_id, aircraft_id, component_type, company_id) VALUES (?, ?, ?, ?)',
+                (component_id, aircraft_id, component_type, company_id)
             )
         conn.commit()
         components = conn.execute(
-            'SELECT component_id, component_type FROM Components WHERE aircraft_id = ?',
+            'SELECT component_id, component_type, company_id FROM Components WHERE aircraft_id = ?',
             (aircraft_id,)
         ).fetchall()
 
@@ -248,8 +253,11 @@ def _is_fault(sensor_type, value):
 @bp.route('/telemetry')
 def telemetry():
     """Display sensor telemetry readings for the selected aircraft."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
 
         selected_tail = request.args.get('tail')
         if not selected_tail and fleet:
@@ -265,24 +273,24 @@ def telemetry():
                                    selected_aircraft=None, telemetry=[],
                                    components=[])
 
-        components = _get_or_create_components(conn, selected_tail)
+        components = _get_or_create_components(conn, selected_tail, company_id)
 
         raw_telemetry = conn.execute('''
             SELECT t.telemetry_id, t.sensor_type, t.reading_value, t.recorded_at,
                    c.component_id, c.component_type, c.aircraft_id
             FROM SensorTelemetry t
             JOIN Components c ON t.component_id = c.component_id
-            WHERE c.aircraft_id = ?
+            WHERE c.aircraft_id = ? AND c.company_id = ?
             ORDER BY t.recorded_at DESC
             LIMIT 15
-        ''', (selected_tail,)).fetchall()
+        ''', (selected_tail, company_id)).fetchall()
 
         total_count = conn.execute('''
             SELECT COUNT(*) as cnt
             FROM SensorTelemetry t
             JOIN Components c ON t.component_id = c.component_id
-            WHERE c.aircraft_id = ?
-        ''', (selected_tail,)).fetchone()['cnt']
+            WHERE c.aircraft_id = ? AND c.company_id = ?
+        ''', (selected_tail, company_id)).fetchone()['cnt']
 
     # Server-computed fault status per row, so the template never needs its
     # own copy of per-sensor thresholds (single source of truth stays here).
@@ -340,19 +348,20 @@ def api_telemetry_poll(aircraft_id):
 
     Each component only gets the sensor types its category maps to
     (sensors_for_component) instead of every registered sensor type."""
+    company_id = get_current_company_id()
     with get_db() as conn:
-        if not _aircraft_exists(conn, aircraft_id):
+        if not _aircraft_exists(conn, aircraft_id, company_id):
             return jsonify({'status': 'error', 'message': f'Unknown aircraft_id: {aircraft_id}'}), 404
 
-        components = _get_or_create_components(conn, aircraft_id)
+        components = _get_or_create_components(conn, aircraft_id, company_id)
 
         readings = []
         for comp in components:
             for sensor_type in sensors_for_component(comp['component_type']):
                 value = _generate_reading(sensor_type)
                 conn.execute(
-                    'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, ?, ?)',
-                    (comp['component_id'], sensor_type, value)
+                    'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, ?, ?, ?)',
+                    (comp['component_id'], sensor_type, value, company_id)
                 )
 
                 profile = SENSOR_TYPE_REGISTRY[sensor_type]
@@ -414,17 +423,18 @@ def api_clear_fault(aircraft_id):
     """Clear all fault flags and inject nominal baseline readings."""
     _fault_flags.pop('global', None)
 
+    company_id = get_current_company_id()
     with get_db() as conn:
-        if not _aircraft_exists(conn, aircraft_id):
+        if not _aircraft_exists(conn, aircraft_id, company_id):
             return jsonify({'status': 'error', 'message': f'Unknown aircraft_id: {aircraft_id}'}), 404
 
-        components = _get_or_create_components(conn, aircraft_id)
+        components = _get_or_create_components(conn, aircraft_id, company_id)
         for comp in components:
             for sensor_type in sensors_for_component(comp['component_type']):
                 profile = SENSOR_TYPE_REGISTRY[sensor_type]
                 conn.execute(
-                    'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, ?, ?)',
-                    (comp['component_id'], sensor_type, profile['baseline'])
+                    'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, ?, ?, ?)',
+                    (comp['component_id'], sensor_type, profile['baseline'], company_id)
                 )
         conn.commit()
 
@@ -443,23 +453,27 @@ def api_telemetry_history(aircraft_id):
     per_page = min(per_page, 100)  # cap at 100
     offset = (page - 1) * per_page
 
+    company_id = get_current_company_id()
     with get_db() as conn:
+        if not _aircraft_exists(conn, aircraft_id, company_id):
+            return jsonify({'status': 'error', 'message': f'Unknown aircraft_id: {aircraft_id}'}), 404
+
         total = conn.execute('''
             SELECT COUNT(*) as cnt
             FROM SensorTelemetry t
             JOIN Components c ON t.component_id = c.component_id
-            WHERE c.aircraft_id = ?
-        ''', (aircraft_id,)).fetchone()['cnt']
+            WHERE c.aircraft_id = ? AND c.company_id = ?
+        ''', (aircraft_id, company_id)).fetchone()['cnt']
 
         rows = conn.execute('''
             SELECT t.telemetry_id, t.sensor_type, t.reading_value, t.recorded_at,
                    c.component_id, c.component_type
             FROM SensorTelemetry t
             JOIN Components c ON t.component_id = c.component_id
-            WHERE c.aircraft_id = ?
+            WHERE c.aircraft_id = ? AND c.company_id = ?
             ORDER BY t.recorded_at DESC
             LIMIT ? OFFSET ?
-        ''', (aircraft_id, per_page, offset)).fetchall()
+        ''', (aircraft_id, company_id, per_page, offset)).fetchall()
 
     history = []
     for r in rows:

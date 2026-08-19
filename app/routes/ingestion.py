@@ -17,7 +17,7 @@ bp = Blueprint('ingestion', __name__)
 @bp.route('/documents/parse/<int:ingestion_id>', methods=['POST'])
 def parse_document(ingestion_id):
     """Manually trigger parsing for one uploaded document."""
-    parse_ingested_document(ingestion_id)
+    parse_ingested_document(ingestion_id, company_id=session.get('company_id'))
     return redirect(url_for('auth.company_profile'))
 
 
@@ -61,12 +61,16 @@ def review_queue():
 def approve(extraction_id):
     edited = {k[len('field_'):]: v for k, v in request.form.items() if k.startswith('field_') and v.strip()}
     reviewer = session.get('username', 'unknown')
-    ok, message = approve_extraction(extraction_id, reviewer, edited_field_data=edited or None)
+    approve_extraction(
+        extraction_id, reviewer,
+        edited_field_data=edited or None,
+        company_id=session.get('company_id'),
+    )
     return redirect(url_for('ingestion.review_queue'))
 
 
 @bp.route('/documents/review/<int:extraction_id>/reject', methods=['POST'])
 def reject(extraction_id):
     reviewer = session.get('username', 'unknown')
-    reject_extraction(extraction_id, reviewer)
+    reject_extraction(extraction_id, reviewer, company_id=session.get('company_id'))
     return redirect(url_for('ingestion.review_queue'))

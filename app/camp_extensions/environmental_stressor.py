@@ -26,6 +26,7 @@ feature degrades gracefully exactly like the rest of the system does.
 from datetime import datetime
 from app.database import get_db
 from app.config import Config
+from app.auth import get_current_company_id
 
 # Values as committed in camp_multi_ontology.owl's Layer 7 section - used both
 # as the fallback if the ontology can't be loaded, and as the seed default
@@ -68,7 +69,7 @@ def ensure_environmental_schema():
     run_migrations()
 
 
-def _company_climate_override(aircraft_id):
+def _company_climate_override(aircraft_id, company_id=None):
     """Round-3: if the aircraft's owning company has set a real hangar
     location (app/auth.py Company Profile), prefer that company's matched
     ambient_temp_c/humidity_pct/corrosion_category over the hardcoded
@@ -84,13 +85,15 @@ def _company_climate_override(aircraft_id):
     one worked stressor example). Only the raw corrosion_category/
     ambient_temp_c/humidity_pct fields - what actually drives
     compute_corrosion_risk() - are overridden per company."""
+    if company_id is None:
+        company_id = get_current_company_id()
     with get_db() as conn:
         row = conn.execute('''
             SELECT c.corrosion_category, c.ambient_temp_c, c.humidity_pct, c.hangar_location_name
             FROM Aircraft a
             JOIN Companies c ON a.company_id = c.company_id
-            WHERE a.aircraft_id = ? AND c.climate_profile_key IS NOT NULL
-        ''', (aircraft_id,)).fetchone()
+            WHERE a.aircraft_id = ? AND a.company_id = ? AND c.climate_profile_key IS NOT NULL
+        ''', (aircraft_id, company_id)).fetchone()
     return dict(row) if row else None
 
 
@@ -111,29 +114,31 @@ def sync_company_environment(company_id):
             conn.execute('''
                 UPDATE AircraftEnvironmentContext
                 SET corrosion_category = ?, ambient_temp_c = ?, humidity_pct = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE aircraft_id = ?
-            ''', (company['corrosion_category'], company['ambient_temp_c'], company['humidity_pct'], aid))
+                WHERE aircraft_id = ? AND company_id = ?
+            ''', (company['corrosion_category'], company['ambient_temp_c'], company['humidity_pct'], aid, company_id))
         conn.commit()
 
 
-def seed_default_context(aircraft_id):
+def seed_default_context(aircraft_id, company_id=None):
     """Give every aircraft a sensible L7 default (editable later) the first time it's seen."""
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_environmental_schema()
     with get_db() as conn:
         existing = conn.execute(
-            'SELECT 1 FROM AircraftEnvironmentContext WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT 1 FROM AircraftEnvironmentContext WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
         ).fetchone()
         if not existing:
             env = FALLBACK_ENVIRONMENTS['L7_WestAfrica_TropicalEnv']
-            override = _company_climate_override(aircraft_id)
+            override = _company_climate_override(aircraft_id, company_id=company_id)
             ambient_temp_c = override['ambient_temp_c'] if override else env['ambient_temp_c']
             humidity_pct = override['humidity_pct'] if override else env['humidity_pct']
             corrosion_category = override['corrosion_category'] if override else env['corrosion_category']
             conn.execute('''
                 INSERT INTO AircraftEnvironmentContext
-                    (aircraft_id, environment_individual, ambient_temp_c, humidity_pct, corrosion_category)
-                VALUES (?, 'L7_WestAfrica_TropicalEnv', ?, ?, ?)
-            ''', (aircraft_id, ambient_temp_c, humidity_pct, corrosion_category))
+                    (aircraft_id, environment_individual, ambient_temp_c, humidity_pct, corrosion_category, company_id)
+                VALUES (?, 'L7_WestAfrica_TropicalEnv', ?, ?, ?, ?)
+            ''', (aircraft_id, ambient_temp_c, humidity_pct, corrosion_category, company_id))
             conn.commit()
 
 
@@ -175,23 +180,27 @@ def load_l7_from_ontology():
     return FALLBACK_ENVIRONMENTS, FALLBACK_STRESSORS
 
 
-def get_aircraft_context(aircraft_id):
+def get_aircraft_context(aircraft_id, company_id=None):
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_environmental_schema()
-    seed_default_context(aircraft_id)
+    seed_default_context(aircraft_id, company_id=company_id)
     with get_db() as conn:
         return conn.execute(
-            'SELECT * FROM AircraftEnvironmentContext WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT * FROM AircraftEnvironmentContext WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
         ).fetchone()
 
 
-def compute_adjusted_threshold(aircraft_id, sensor_type, base_threshold, log_result=True):
+def compute_adjusted_threshold(aircraft_id, sensor_type, base_threshold, log_result=True, company_id=None):
     """
     The property-chain hop the gap analysis was missing: walk
     Environment -> Stressor -> modifiesFailureMode -> sensor_type, and
     tighten base_threshold accordingly. Returns (adjusted_threshold, active_stressor_name_or_None).
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     environments, stressors = load_l7_from_ontology()
-    ctx = get_aircraft_context(aircraft_id)
+    ctx = get_aircraft_context(aircraft_id, company_id=company_id)
     env_key = ctx['environment_individual'] if ctx else 'L7_WestAfrica_TropicalEnv'
 
     adjusted = base_threshold
@@ -209,29 +218,33 @@ def compute_adjusted_threshold(aircraft_id, sensor_type, base_threshold, log_res
     if log_result:
         with get_db() as conn:
             conn.execute('''
-                INSERT INTO EnvironmentalRiskLog (aircraft_id, sensor_type, stressor, base_threshold, adjusted_threshold)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (aircraft_id, sensor_type, active_stressor, base_threshold, adjusted))
+                INSERT INTO EnvironmentalRiskLog (aircraft_id, sensor_type, stressor, base_threshold, adjusted_threshold, company_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (aircraft_id, sensor_type, active_stressor, base_threshold, adjusted, company_id))
             conn.execute(
-                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text) VALUES (?, ?, ?)',
+                'INSERT INTO XAILogs (component_id, ai_decision, explanation_text, company_id) VALUES (?, ?, ?, ?)',
                 (aircraft_id, 'Layer7-Environmental-Adjustment',
                  f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Environment {env_key}: "
                  f"{sensor_type} threshold {base_threshold} -> {adjusted} "
-                 f"(stressor: {active_stressor or 'none active'}).")
+                 f"(stressor: {active_stressor or 'none active'}).", company_id)
             )
             conn.commit()
 
     return adjusted, active_stressor
 
 
-def compute_corrosion_risk(component_id, aircraft_id):
+def compute_corrosion_risk(component_id, aircraft_id, company_id=None):
     """Deterministic corrosion risk score (0-100) combining L7 environment with component exposure."""
-    ctx = get_aircraft_context(aircraft_id)
+    if company_id is None:
+        company_id = get_current_company_id()
+    ctx = get_aircraft_context(aircraft_id, company_id=company_id)
     category = ctx['corrosion_category'] if ctx else 'C3'
     weight = CORROSION_CATEGORY_WEIGHT.get(category, 0.6)
 
     with get_db() as conn:
-        comp = conn.execute('SELECT * FROM Components WHERE component_id = ?', (component_id,)).fetchone()
+        comp = conn.execute(
+            'SELECT * FROM Components WHERE component_id = ? AND company_id = ?', (component_id, company_id)
+        ).fetchone()
 
     if not comp:
         return 0.0
@@ -243,26 +256,32 @@ def compute_corrosion_risk(component_id, aircraft_id):
     return risk_score
 
 
-def fleet_environmental_summary():
+def fleet_environmental_summary(company_id=None):
     """Used by the dashboard page: environment context + corrosion risk for every aircraft/component."""
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_environmental_schema()
     with get_db() as conn:
-        fleet = conn.execute('SELECT * FROM Aircraft').fetchall()
+        fleet = conn.execute(
+            'SELECT * FROM Aircraft WHERE company_id = ?', (company_id,)
+        ).fetchall()
 
     summary = []
     for plane in fleet:
-        ctx = get_aircraft_context(plane['aircraft_id'])
+        ctx = get_aircraft_context(plane['aircraft_id'], company_id=company_id)
         with get_db() as conn:
             components = conn.execute(
-                'SELECT * FROM Components WHERE aircraft_id = ?', (plane['aircraft_id'],)
+                'SELECT * FROM Components WHERE aircraft_id = ? AND company_id = ?', (plane['aircraft_id'], company_id)
             ).fetchall()
 
         comp_rows = []
         for comp in components:
-            risk = compute_corrosion_risk(comp['component_id'], plane['aircraft_id'])
+            risk = compute_corrosion_risk(comp['component_id'], plane['aircraft_id'], company_id=company_id)
             comp_rows.append({'component_id': comp['component_id'], 'component_type': comp['component_type'], 'risk_score': risk})
 
-        adjusted_egt, stressor = compute_adjusted_threshold(plane['aircraft_id'], 'Thermocouple', 900.0, log_result=False)
+        adjusted_egt, stressor = compute_adjusted_threshold(
+            plane['aircraft_id'], 'Thermocouple', 900.0, log_result=False, company_id=company_id
+        )
 
         summary.append({
             'aircraft_id': plane['aircraft_id'], 'registration': plane['registration'],

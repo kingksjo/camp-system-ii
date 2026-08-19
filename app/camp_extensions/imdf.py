@@ -19,6 +19,7 @@ app/camp_extensions/parts_traceability.py) - it composes them.
 """
 from datetime import datetime
 from app.database import get_db
+from app.auth import get_current_company_id
 from app.camp_extensions import digital_evidence as evidence_engine
 from app.camp_extensions import parts_traceability as parts_engine
 
@@ -42,41 +43,47 @@ def get_work_order_number(fault_id, detected_time=None):
     return f"WO-{year}-{int(fault_id):04d}"
 
 
-def get_work_order_context(fault_id):
+def get_work_order_context(fault_id, company_id=None):
     """
     Assemble everything the merged Work Order Documentation page needs:
     the authorization header (Stage 1), the aircraft's evidence chain
     scoped to this fault (Stage 2/3/6), and any parts already
     removed/registered against this component (Stage 4/5).
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_imdf_schema()
     evidence_engine.ensure_evidence_schema()
     parts_engine.ensure_parts_schema()
 
     with get_db() as conn:
-        fault = conn.execute('SELECT * FROM Faults WHERE fault_id = ?', (fault_id,)).fetchone()
+        fault = conn.execute(
+            'SELECT * FROM Faults WHERE fault_id = ? AND company_id = ?', (fault_id, company_id)
+        ).fetchone()
         if not fault:
             return None
 
         component = conn.execute(
-            'SELECT * FROM Components WHERE component_id = ?', (fault['component_id'],)
+            'SELECT * FROM Components WHERE component_id = ? AND company_id = ?',
+            (fault['component_id'], company_id)
         ).fetchone()
         aircraft_id = component['aircraft_id'] if component else None
         aircraft = conn.execute(
-            'SELECT * FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT * FROM Aircraft WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
         ).fetchone() if aircraft_id else None
 
         ata_chapter = (fault['amm_reference'] or '').split(' ')[0]
 
         evidence_records = conn.execute(
-            'SELECT * FROM DigitalEvidence WHERE fault_id = ? ORDER BY chain_position DESC',
-            (fault_id,)
+            'SELECT * FROM DigitalEvidence WHERE fault_id = ? AND company_id = ? '
+            'ORDER BY chain_position DESC',
+            (fault_id, company_id)
         ).fetchall()
 
         removed_parts = conn.execute(
             "SELECT * FROM PartRecords WHERE component_id = ? AND status = 'Removed' "
-            "ORDER BY removed_date DESC",
-            (fault['component_id'],)
+            "AND company_id = ? ORDER BY removed_date DESC",
+            (fault['component_id'], company_id)
         ).fetchall()
 
         # Candidate replacement parts: anything registered for this
@@ -86,17 +93,18 @@ def get_work_order_context(fault_id):
         if placeholders:
             installed_candidates = conn.execute(
                 f"SELECT * FROM PartRecords WHERE component_id = ? AND status = 'In Service' "
-                f"AND part_serial NOT IN ({placeholders}) ORDER BY created_at DESC",
-                (fault['component_id'], *removed_serials)
+                f"AND company_id = ? AND part_serial NOT IN ({placeholders}) "
+                f"ORDER BY created_at DESC",
+                (fault['component_id'], company_id, *removed_serials)
             ).fetchall()
         else:
             installed_candidates = conn.execute(
                 "SELECT * FROM PartRecords WHERE component_id = ? AND status = 'In Service' "
-                "ORDER BY created_at DESC",
-                (fault['component_id'],)
+                "AND company_id = ? ORDER BY created_at DESC",
+                (fault['component_id'], company_id)
             ).fetchall()
 
-    verification = evidence_engine.verify_chain(aircraft_id) if aircraft_id else None
+    verification = evidence_engine.verify_chain(aircraft_id, company_id=company_id) if aircraft_id else None
 
     return {
         'fault': fault,
@@ -112,23 +120,32 @@ def get_work_order_context(fault_id):
 
 
 def mark_part_removed(part_serial, removal_reason, condition_assessment, fault_code,
-                       flight_hours=None, flight_cycles=None, position_on_aircraft=None):
+                       flight_hours=None, flight_cycles=None, position_on_aircraft=None,
+                       fault_id=None, company_id=None):
     """Stage 3: document a removed component against its existing PartRecords entry."""
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_imdf_schema()
     with get_db() as conn:
+        if fault_id is not None:
+            fault = conn.execute(
+                'SELECT 1 FROM Faults WHERE fault_id = ? AND company_id = ?', (fault_id, company_id)
+            ).fetchone()
+            if not fault:
+                raise ValueError("Unknown fault - part not removed.")
         conn.execute('''
             UPDATE PartRecords
             SET status = 'Removed', removal_reason = ?, condition_assessment = ?,
                 fault_code = ?, flight_hours_at_removal = ?, flight_cycles_at_removal = ?,
                 position_on_aircraft = COALESCE(?, position_on_aircraft),
                 removed_date = datetime('now', 'localtime')
-            WHERE part_serial = ?
+            WHERE part_serial = ? AND company_id = ?
         ''', (removal_reason, condition_assessment, fault_code, flight_hours, flight_cycles,
-              position_on_aircraft, part_serial))
+              position_on_aircraft, part_serial, company_id))
         conn.commit()
 
 
-def documentation_readiness(fault_id, component_replaced, installed_part_serial=None):
+def documentation_readiness(fault_id, component_replaced, installed_part_serial=None, company_id=None):
     """
     Stage 4 gate: "The system should reject installation if mandatory
     traceability information is missing." Evidence is always required for
@@ -138,12 +155,15 @@ def documentation_readiness(fault_id, component_replaced, installed_part_serial=
 
     Returns (ready: bool, missing: list[str]).
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_imdf_schema()
     missing = []
 
     with get_db() as conn:
         evidence_count = conn.execute(
-            'SELECT COUNT(*) as c FROM DigitalEvidence WHERE fault_id = ?', (fault_id,)
+            'SELECT COUNT(*) as c FROM DigitalEvidence WHERE fault_id = ? AND company_id = ?',
+            (fault_id, company_id)
         ).fetchone()['c']
         if evidence_count == 0:
             missing.append("At least one piece of evidence (photo/document) documenting the work performed")
@@ -153,7 +173,8 @@ def documentation_readiness(fault_id, component_replaced, installed_part_serial=
                 missing.append("A verified replacement part (register or scan it in the Parts Traceability panel)")
             else:
                 part = conn.execute(
-                    'SELECT * FROM PartRecords WHERE part_serial = ?', (installed_part_serial,)
+                    'SELECT * FROM PartRecords WHERE part_serial = ? AND company_id = ?',
+                    (installed_part_serial, company_id)
                 ).fetchone()
                 if not part:
                     missing.append(f"Replacement part {installed_part_serial} is not a registered part record")

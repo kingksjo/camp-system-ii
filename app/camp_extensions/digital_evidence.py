@@ -21,6 +21,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.config import Config
+from app.auth import get_current_company_id
 
 GENESIS_HASH = "0" * 64
 
@@ -66,27 +67,32 @@ def _extract_gps_from_image(filepath):
         return None
 
 
-def _get_last_hash(conn, aircraft_id):
+def _get_last_hash(conn, aircraft_id, company_id):
     row = conn.execute(
-        'SELECT sha256_hash FROM DigitalEvidence WHERE aircraft_id = ? ORDER BY chain_position DESC LIMIT 1',
-        (aircraft_id,)
+        'SELECT sha256_hash FROM DigitalEvidence WHERE aircraft_id = ? AND company_id = ? '
+        'ORDER BY chain_position DESC LIMIT 1',
+        (aircraft_id, company_id)
     ).fetchone()
     return row['sha256_hash'] if row else GENESIS_HASH
 
 
-def _get_chain_length(conn, aircraft_id):
+def _get_chain_length(conn, aircraft_id, company_id):
     row = conn.execute(
-        'SELECT COUNT(*) as cnt FROM DigitalEvidence WHERE aircraft_id = ?', (aircraft_id,)
+        'SELECT COUNT(*) as cnt FROM DigitalEvidence WHERE aircraft_id = ? AND company_id = ?',
+        (aircraft_id, company_id)
     ).fetchone()
     return row['cnt']
 
 
 def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_by,
-                    manual_lat=None, manual_lon=None, captured_at_client=None, notes=""):
+                    manual_lat=None, manual_lon=None, captured_at_client=None, notes="",
+                    company_id=None):
     """
     Save an uploaded evidence file, geotag it, and append it to the aircraft's
     tamper-evident hash chain. Returns the new evidence record (dict).
     """
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_evidence_schema()
 
     if not file_storage or file_storage.filename == '':
@@ -94,19 +100,20 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
 
     with get_db() as conn:
         aircraft = conn.execute(
-            'SELECT 1 FROM Aircraft WHERE aircraft_id = ?', (aircraft_id,)
+            'SELECT 1 FROM Aircraft WHERE aircraft_id = ? AND company_id = ?', (aircraft_id, company_id)
         ).fetchone()
         if not aircraft:
             raise ValueError("Unknown aircraft - evidence not stored.")
         if fault_id:
             fault = conn.execute(
-                'SELECT 1 FROM Faults WHERE fault_id = ?', (fault_id,)
+                'SELECT 1 FROM Faults WHERE fault_id = ? AND company_id = ?', (fault_id, company_id)
             ).fetchone()
             if not fault:
                 raise ValueError("Unknown fault - evidence not stored.")
         if component_id:
             component = conn.execute(
-                'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+                'SELECT 1 FROM Components WHERE component_id = ? AND company_id = ?',
+                (component_id, company_id)
             ).fetchone()
             if not component:
                 raise ValueError("Unknown component - evidence not stored.")
@@ -134,8 +141,8 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
     captured_at = captured_at_client or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     with get_db() as conn:
-        prev_hash = _get_last_hash(conn, aircraft_id)
-        chain_position = _get_chain_length(conn, aircraft_id) + 1
+        prev_hash = _get_last_hash(conn, aircraft_id, company_id)
+        chain_position = _get_chain_length(conn, aircraft_id, company_id) + 1
 
         # The record hash anchors the file content to WHEN, WHERE, WHO, and
         # WHAT CAME BEFORE - changing any of those after the fact changes this hash.
@@ -148,19 +155,19 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
                     INSERT INTO DigitalEvidence
                         (evidence_id, aircraft_id, fault_id, component_id, file_path, original_filename,
                          sha256_hash, prev_hash, chain_position, latitude, longitude, location_source,
-                         captured_at, uploaded_by, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         captured_at, uploaded_by, notes, company_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (evidence_id, aircraft_id, fault_id, component_id, filepath, file_storage.filename,
                       record_hash, prev_hash, chain_position, latitude, longitude, location_source,
-                      captured_at, uploaded_by, notes))
+                      captured_at, uploaded_by, notes, company_id))
                 break
             except sqlite3.IntegrityError:
                 if attempt >= 2:
                     raise
                 # Two uploads claimed the same chain position - the unique
                 # index (migration 008) guards the chain; recompute and retry.
-                prev_hash = _get_last_hash(conn, aircraft_id)
-                chain_position = _get_chain_length(conn, aircraft_id) + 1
+                prev_hash = _get_last_hash(conn, aircraft_id, company_id)
+                chain_position = _get_chain_length(conn, aircraft_id, company_id) + 1
                 chain_payload = f"{prev_hash}|{file_sha256}|{captured_at}|{uploaded_by}|{latitude}|{longitude}"
                 record_hash = hashlib.sha256(chain_payload.encode('utf-8')).hexdigest()
         conn.commit()
@@ -171,13 +178,16 @@ def store_evidence(file_storage, aircraft_id, fault_id, component_id, uploaded_b
     }
 
 
-def verify_chain(aircraft_id):
+def verify_chain(aircraft_id, company_id=None):
     """Recompute the hash chain for an aircraft and report the first break, if any."""
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_evidence_schema()
     with get_db() as conn:
         rows = conn.execute(
-            'SELECT * FROM DigitalEvidence WHERE aircraft_id = ? ORDER BY chain_position ASC',
-            (aircraft_id,)
+            'SELECT * FROM DigitalEvidence WHERE aircraft_id = ? AND company_id = ? '
+            'ORDER BY chain_position ASC',
+            (aircraft_id, company_id)
         ).fetchall()
 
     expected_prev = GENESIS_HASH

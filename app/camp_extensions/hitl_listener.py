@@ -32,6 +32,7 @@ from app.database import get_db
 # app/routes/telemetry.py's SENSOR_TYPE_REGISTRY - import the keys rather
 # than keeping a second, driftable hardcoded list here.
 from app.routes.telemetry import SENSOR_TYPE_REGISTRY
+from app.auth import get_current_company_id
 
 
 def ensure_hitl_schema():
@@ -52,6 +53,7 @@ class _HITLListenerState:
         self.packets_received = 0
         self.last_packet_at = None
         self.last_error = None
+        self.company_defaults = {}
 
 
 _state = _HITLListenerState()
@@ -59,8 +61,9 @@ _state = _HITLListenerState()
 VALID_SENSOR_TYPES = set(SENSOR_TYPE_REGISTRY.keys())
 
 
-def _handle_line(conn, line, default_aircraft_id):
-    """Parse one CSV line and persist it as a SensorTelemetry reading."""
+def _handle_line(conn, line, default_aircraft_id, company_id):
+    """Parse one CSV line and persist it as a SensorTelemetry reading,
+    stamped with the company whose fleet the listener is feeding."""
     line = line.strip()
     if not line:
         return None
@@ -89,34 +92,39 @@ def _handle_line(conn, line, default_aircraft_id):
         # Auto-create the component if the HIL rig references one that doesn't exist yet,
         # mirroring _get_or_create_components()'s pattern in telemetry.py.
         exists = conn.execute(
-            'SELECT 1 FROM Components WHERE component_id = ?', (component_id,)
+            'SELECT 1 FROM Components WHERE component_id = ? AND company_id = ?', (component_id, company_id)
         ).fetchone()
         if not exists and default_aircraft_id:
             conn.execute(
-                'INSERT INTO Components (component_id, aircraft_id, component_type) VALUES (?, ?, ?)',
-                (component_id, default_aircraft_id, 'HIL-Rig')
+                'INSERT INTO Components (component_id, aircraft_id, component_type, company_id) VALUES (?, ?, ?, ?)',
+                (component_id, default_aircraft_id, 'HIL-Rig', company_id)
             )
 
         conn.execute(
-            'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value) VALUES (?, ?, ?)',
-            (component_id, sensor_type, reading_value)
+            'INSERT INTO SensorTelemetry (component_id, sensor_type, reading_value, company_id) VALUES (?, ?, ?, ?)',
+            (component_id, sensor_type, reading_value, company_id)
         )
         conn.execute(
-            'INSERT INTO HITLPacketLog (raw_payload, component_id, sensor_type, reading_value, status) '
-            'VALUES (?, ?, ?, ?, ?)',
-            (line, component_id, sensor_type, reading_value, status)
+            'INSERT INTO HITLPacketLog (raw_payload, component_id, sensor_type, reading_value, status, company_id) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (line, component_id, sensor_type, reading_value, status, company_id)
         )
         return status
 
     except Exception as e:
         conn.execute(
-            'INSERT INTO HITLPacketLog (raw_payload, status) VALUES (?, ?)',
-            (line, f'Rejected: {e}')
+            'INSERT INTO HITLPacketLog (raw_payload, status, company_id) VALUES (?, ?, ?)',
+            (line, f'Rejected: {e}', company_id)
         )
         return f'Rejected: {e}'
 
 
-def _listener_loop(port, default_aircraft_id):
+def _listener_loop(port):
+    """Long-running UDP listener thread. Runs the per-packet body once per
+    company (Phase 5 tenancy): every packet is stamped and persisted for
+    each tenant in the Companies table, using that tenant's own default
+    aircraft (recorded by start_listener). Never falls back to session
+    defaults in this thread."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(0.5)
@@ -144,8 +152,10 @@ def _listener_loop(port, default_aircraft_id):
             continue
 
         with get_db() as conn:
+            company_ids = [r['company_id'] for r in conn.execute('SELECT company_id FROM Companies')]
             for line in text.splitlines():
-                _handle_line(conn, line, default_aircraft_id)
+                for company_id in company_ids:
+                    _handle_line(conn, line, _state.company_defaults.get(company_id), company_id)
             conn.commit()
 
         _state.packets_received += 1
@@ -155,18 +165,23 @@ def _listener_loop(port, default_aircraft_id):
     _state.running = False
 
 
-def start_listener(port, default_aircraft_id):
-    """Start the UDP listener thread if not already running."""
+def start_listener(port, default_aircraft_id, company_id=None):
+    """Start the UDP listener thread if not already running. The company_id
+    records which tenant's default aircraft the listener should feed."""
     if _state.running:
         return False, "Listener already running."
+
+    if company_id is None:
+        company_id = get_current_company_id()
 
     ensure_hitl_schema()
     _state.stop_event.clear()
     _state.port = port
     _state.packets_received = 0
     _state.last_error = None
+    _state.company_defaults[company_id] = default_aircraft_id
     _state.thread = threading.Thread(
-        target=_listener_loop, args=(port, default_aircraft_id), daemon=True
+        target=_listener_loop, args=(port,), daemon=True
     )
     _state.thread.start()
     time.sleep(0.2)  # let bind() fail fast if the port is taken

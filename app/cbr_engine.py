@@ -8,7 +8,7 @@ from app.database import get_db
 from app.config import Config
 
 
-def retrieve_similar_cases(current_fault_desc, aircraft_reg, threshold=None):
+def retrieve_similar_cases(current_fault_desc, aircraft_reg, threshold=None, company_id=None):
     """
     Retrieve similar historical maintenance cases for a given fault.
     
@@ -16,20 +16,24 @@ def retrieve_similar_cases(current_fault_desc, aircraft_reg, threshold=None):
         current_fault_desc (str): Description of the current fault
         aircraft_reg (str): Aircraft registration number
         threshold (float): Similarity score threshold (0-1). Defaults to config value.
+        company_id (int): Tenant scope; defaults to the request's company.
     
     Returns:
         list: Top 3 similar historical cases with similarity scores
     """
     if threshold is None:
         threshold = Config.CBR_SIMILARITY_THRESHOLD
-    
+
+    from app.tenancy import current_company_id
+    company_id = company_id if company_id is not None else current_company_id()
+
     with get_db() as conn:
         # Fetch historical maintenance cases (Retain Phase of CBR)
         historical_cases = conn.execute('''
             SELECT task_description, signed_off_by, completion_date 
             FROM MaintenanceHistory 
-            WHERE aircraft_reg = ?
-        ''', (aircraft_reg,)).fetchall()
+            WHERE aircraft_reg = ? AND company_id = ?
+        ''', (aircraft_reg, company_id)).fetchall()
     
     if not historical_cases:
         return []
@@ -59,25 +63,29 @@ def retrieve_similar_cases(current_fault_desc, aircraft_reg, threshold=None):
     return similar_cases[:Config.CBR_TOP_RESULTS]
 
 
-def _resolve_aircraft_id(conn, aircraft_reg):
+def _resolve_aircraft_id(conn, aircraft_reg, company_id=None):
     """Resolve a free-text registration to a stable Aircraft.aircraft_id.
 
     Dashes and underscores are treated as equivalent ('5N-TAJ' == '5N_TAJ').
-    Returns None when no aircraft matches (the caller records the history
-    row anyway, with a NULL aircraft_id - Phase 3B).
+    Only aircraft owned by ``company_id`` (default: the request's company)
+    are considered. Returns None when no aircraft matches (the caller
+    records the history row anyway, with a NULL aircraft_id - Phase 3B).
     """
     if not aircraft_reg:
         return None
+    from app.tenancy import current_company_id
+    company_id = company_id if company_id is not None else current_company_id()
     row = conn.execute(
         '''SELECT aircraft_id FROM Aircraft
            WHERE REPLACE(registration, '-', '_') = REPLACE(?, '-', '_')
+             AND company_id = ?
            LIMIT 1''',
-        (aircraft_reg,)
+        (aircraft_reg, company_id)
     ).fetchone()
     return row['aircraft_id'] if row else None
 
 
-def log_maintenance_action(aircraft_reg, task_description, digital_signature, conn=None):
+def log_maintenance_action(aircraft_reg, task_description, digital_signature, conn=None, company_id=None):
     """
     Log a maintenance action to the global history.
 
@@ -85,17 +93,22 @@ def log_maintenance_action(aircraft_reg, task_description, digital_signature, co
         aircraft_reg (str): Aircraft registration
         task_description (str): Description of maintenance task
         digital_signature (str): Engineer's digital signature
+        company_id (int): Tenant scope; defaults to the request's company.
 
     The stable Aircraft.aircraft_id is resolved and stored alongside the
     free-text registration (migration 009); unmatched registrations are
-    recorded with a NULL aircraft_id rather than being rejected.
+    recorded with a NULL aircraft_id rather than being rejected. Rows are
+    stamped with the owning company (migration 010 / Phase 5).
     """
+    from app.tenancy import current_company_id
+    company_id = company_id if company_id is not None else current_company_id()
 
     def _insert(c):
         c.execute('''
-            INSERT INTO MaintenanceHistory (aircraft_reg, aircraft_id, task_description, signed_off_by)
-            VALUES (?, ?, ?, ?)
-        ''', (aircraft_reg, _resolve_aircraft_id(c, aircraft_reg), task_description, digital_signature))
+            INSERT INTO MaintenanceHistory (aircraft_reg, aircraft_id, task_description, signed_off_by, company_id)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (aircraft_reg, _resolve_aircraft_id(c, aircraft_reg, company_id),
+              task_description, digital_signature, company_id))
 
     if conn is not None:
         _insert(conn)

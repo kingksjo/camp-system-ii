@@ -19,6 +19,7 @@ import threading
 import time
 import re
 from app.database import get_db
+from app.auth import get_current_company_id
 
 
 def ensure_ks_schema():
@@ -38,17 +39,36 @@ def _keywords_from(text):
     return {w.lower() for w in re.findall(r"[A-Za-z]{3,}", text or "")}
 
 
-def run_kill_switch_scan():
-    """Process any CRS_Records rows not yet handled. Safe to call repeatedly."""
+def run_kill_switch_scan(company_id=None):
+    """Process any CRS_Records rows not yet handled. Safe to call repeatedly.
+
+    Phase 5 tenancy: an explicit company_id scopes the sweep to that tenant;
+    when company_id is None (background watcher thread), every company in the
+    Companies table is swept in turn - never a session default in a thread.
+    """
     ensure_ks_schema()
+    if company_id is None:
+        with get_db() as conn:
+            company_ids = [r['company_id'] for r in conn.execute('SELECT company_id FROM Companies')]
+    else:
+        company_ids = [company_id]
+
+    actions = []
+    for cid in company_ids:
+        actions.extend(_scan_company(cid))
+    return actions
+
+
+def _scan_company(company_id):
+    """Per-company kill-switch sweep: process one tenant's unhandled CRS rows."""
     actions = []
 
     with get_db() as conn:
         new_crs = conn.execute('''
             SELECT c.* FROM CRS_Records c
             LEFT JOIN KillSwitchProcessedCRS p ON c.id = p.crs_id
-            WHERE p.crs_id IS NULL
-        ''').fetchall()
+            WHERE p.crs_id IS NULL AND c.company_id = ?
+        ''', (company_id,)).fetchall()
 
         for crs in new_crs:
             # Prefer the stable aircraft_id when the row has one (migration
@@ -59,8 +79,8 @@ def run_kill_switch_scan():
             # 1) Cancel matching open Schedule entries for this aircraft
             open_events = conn.execute(
                 "SELECT rowid as record_id, * FROM Schedule "
-                "WHERE aircraft_id = ? AND (status = 'Scheduled' OR status IS NULL)",
-                (aircraft_id_guess,)
+                "WHERE aircraft_id = ? AND company_id = ? AND (status = 'Scheduled' OR status IS NULL)",
+                (aircraft_id_guess, company_id)
             ).fetchall()
 
             for ev in open_events:
@@ -83,16 +103,16 @@ def run_kill_switch_scan():
                         continue
                     reason = f"CRS {crs['reference_id']} released aircraft {crs['aircraft_reg']}; matched hangar slot '{ev['title']}'."
                     conn.execute(
-                        "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason) "
-                        "VALUES (?, ?, 'Schedule', ?, 'Cancelled', ?)",
-                        (crs['id'], crs['aircraft_reg'], str(ev['record_id']), reason)
+                        "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason, company_id) "
+                        "VALUES (?, ?, 'Schedule', ?, 'Cancelled', ?, ?)",
+                        (crs['id'], crs['aircraft_reg'], str(ev['record_id']), reason, company_id)
                     )
                     actions.append(reason)
 
             # 2) Auto-close any MEL deferral for this aircraft with matching keywords
             open_mels = conn.execute(
-                "SELECT * FROM MEL_Deferrals WHERE aircraft_id = ? AND status = 'Active'",
-                (aircraft_id_guess,)
+                "SELECT * FROM MEL_Deferrals WHERE aircraft_id = ? AND company_id = ? AND status = 'Active'",
+                (aircraft_id_guess, company_id)
             ).fetchall()
             for mel in open_mels:
                 if crs_keywords & _keywords_from(mel['item_description']):
@@ -105,14 +125,14 @@ def run_kill_switch_scan():
                         continue
                     reason = f"CRS {crs['reference_id']} cleared MEL deferral: {mel['item_description']}."
                     conn.execute(
-                        "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason) "
-                        "VALUES (?, ?, 'MEL_Deferrals', ?, 'Cleared', ?)",
-                        (crs['id'], crs['aircraft_reg'], str(mel['deferral_id']), reason)
+                        "INSERT INTO KillSwitchLog (crs_id, aircraft_reg, target_table, target_record_id, action_taken, reason, company_id) "
+                        "VALUES (?, ?, 'MEL_Deferrals', ?, 'Cleared', ?, ?)",
+                        (crs['id'], crs['aircraft_reg'], str(mel['deferral_id']), reason, company_id)
                     )
                     actions.append(reason)
 
             conn.execute(
-                "INSERT OR IGNORE INTO KillSwitchProcessedCRS (crs_id) VALUES (?)", (crs['id'],)
+                "INSERT OR IGNORE INTO KillSwitchProcessedCRS (crs_id, company_id) VALUES (?, ?)", (crs['id'], company_id)
             )
 
         conn.commit()
@@ -146,20 +166,24 @@ def start_watcher():
     _watcher_thread.start()
 
 
-def get_hangar_activity_log(limit=100):
+def get_hangar_activity_log(limit=100, company_id=None):
     """
     Consolidated "past activities" record for the Hangar Schedule page's
     Activity Log tab - merges automatic kill-switch cancellations, automatic
     2-day schedule expirations, and manual engineer sign-offs into one
     chronological history, instead of the kill switch only ever showing its
-    own automated actions.
+    own automated actions. Scoped to the (default or explicit) company.
     """
     from app.database import get_db as _get_db  # local import avoids any import-order surprises
+    if company_id is None:
+        company_id = get_current_company_id()
     ensure_ks_schema()
 
     rows = []
     with _get_db() as conn:
-        for r in conn.execute('SELECT * FROM KillSwitchLog ORDER BY id DESC LIMIT ?', (limit,)).fetchall():
+        for r in conn.execute(
+            'SELECT * FROM KillSwitchLog WHERE company_id = ? ORDER BY id DESC LIMIT ?', (company_id, limit)
+        ).fetchall():
             rows.append({
                 'timestamp': r['timestamp'], 'category': 'Auto-Cancellation',
                 'badge': 'warning', 'aircraft': r['aircraft_reg'],
@@ -167,7 +191,9 @@ def get_hangar_activity_log(limit=100):
             })
 
         try:
-            for r in conn.execute('SELECT * FROM ScheduleLifecycleLog ORDER BY id DESC LIMIT ?', (limit,)).fetchall():
+            for r in conn.execute(
+                'SELECT * FROM ScheduleLifecycleLog WHERE company_id = ? ORDER BY id DESC LIMIT ?', (company_id, limit)
+            ).fetchall():
                 rows.append({
                     'timestamp': r['timestamp'], 'category': 'Auto-Expired (2-Day Rule)',
                     'badge': 'danger', 'aircraft': None,
@@ -177,8 +203,8 @@ def get_hangar_activity_log(limit=100):
             pass  # ScheduleLifecycleLog may not exist yet on a fresh DB
 
         for r in conn.execute(
-            "SELECT * FROM MaintenanceHistory WHERE task_description LIKE 'Hangar Check:%' "
-            "ORDER BY log_id DESC LIMIT ?", (limit,)
+            "SELECT * FROM MaintenanceHistory WHERE company_id = ? AND task_description LIKE 'Hangar Check:%' "
+            "ORDER BY log_id DESC LIMIT ?", (company_id, limit)
         ).fetchall():
             rows.append({
                 'timestamp': r['completion_date'] or r['sign_off_date'], 'category': 'Manual Sign-Off',

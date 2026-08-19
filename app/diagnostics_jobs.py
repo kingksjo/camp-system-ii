@@ -29,7 +29,7 @@ def ensure_jobs_schema():
     run_migrations()
 
 
-def start_diagnostic_job(aircraft_id):
+def start_diagnostic_job(aircraft_id, company_id=None):
     """Kick off run_fleet_analysis() on a background thread. Returns the new job_id immediately."""
     from app.ontology_reasoner import run_fleet_analysis  # local import avoids any import-order issues
 
@@ -45,7 +45,7 @@ def start_diagnostic_job(aircraft_id):
 
     def _worker():
         try:
-            results = run_fleet_analysis(aircraft_id)
+            results = run_fleet_analysis(aircraft_id, company_id=company_id)
             fault_count = sum(1 for r in results if r.get('fault_detected'))
             with get_db() as conn:
                 conn.execute(
