@@ -38,10 +38,19 @@ def parse_ingested_document(ingestion_id, company_id=None):
             return 'Not Found'
 
         manual_type = ingestion['manual_type']
-        conn.execute(
-            "UPDATE IngestedDocuments SET status = 'Parsing' WHERE ingestion_id = ?", (ingestion_id,)
+
+        # Idempotency claim (DB-08): only one parse may be in flight per
+        # ingestion. A concurrent or repeated POST sees rowcount == 0 and
+        # returns early instead of running a second extraction batch that
+        # would duplicate the pending rows.
+        claimed = conn.execute(
+            "UPDATE IngestedDocuments SET status = 'Parsing' "
+            "WHERE ingestion_id = ? AND company_id = ? AND status != 'Parsing'",
+            (ingestion_id, company_id),
         )
         conn.commit()
+        if claimed.rowcount == 0:
+            return 'Already Parsing'
 
     try:
         if manual_type in TIER1_TYPES:
@@ -62,6 +71,14 @@ def parse_ingested_document(ingestion_id, company_id=None):
 
     target_table = TARGET_TABLE_BY_MANUAL_TYPE.get(manual_type)
     with get_db() as conn:
+        # Re-parse replaces the unreviewed candidate set rather than stacking a
+        # duplicate batch on top of a previous run. Reviewed rows (Approved /
+        # Rejected / Edited & Approved) are preserved - they carry the audit
+        # trail and the review decision.
+        conn.execute(
+            "DELETE FROM PendingExtractions WHERE ingestion_id = ? AND status = 'Pending'",
+            (ingestion_id,),
+        )
         for candidate in candidates:
             conn.execute(
                 'INSERT INTO PendingExtractions '

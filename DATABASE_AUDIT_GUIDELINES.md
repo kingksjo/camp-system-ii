@@ -395,7 +395,7 @@ sqlite3 camp_system.db "PRAGMA foreign_key_check;"
 
 ### Phase 4: Make writes safe under retry and concurrency
 
-1. Make ingestion parsing and approval idempotent.
+1. Make ingestion parsing and approval idempotent. *(parsing closed in Phase 5b; approval closed in Phase 5)*
 2. Make document generation idempotent.
 3. Use conditional updates for schedule lifecycle and kill-switch actions.
 4. Prevent duplicate diagnostics for the same aircraft while one is running.
@@ -626,10 +626,35 @@ Not yet done (tracked as later phases):
 
 Still open for later phases:
 
-- Ingestion parsing idempotency (the remaining DB-08 candidate:
-  `app/ingestion/runner.py` pending rows) - the approval half was closed
-  alongside tenancy in Phase 5 (the commit claim is conditional and the
-  target-row company_id is derived from the owning ingestion row).
+- Document generation idempotency (the remaining DB-08 candidate in
+  `app/camp_extensions/maintenance_documents.py`): generating the same
+  document twice still creates duplicate records. The ingestion half of
+  DB-08 was closed in Phase 5/5b: approval (the commit claim is conditional
+  and the target-row company_id is derived from the owning ingestion row)
+  and parsing (re-parse replaces the unreviewed candidate set and the
+  parsing claim is conditional, so concurrent/repeated parses are no-ops).
+
+### Phase 5b: Ingestion parsing idempotency (DB-08) - IMPLEMENTED (2026-08-20)
+
+The last open ingestion guard: `app/ingestion/runner.py` previously ran
+`INSERT INTO PendingExtractions` unconditionally on every call, so a repeated
+POST to `/documents/parse/<id>` (or a retry after a partial failure) stacked
+duplicate pending rows, and two concurrent requests could both pass the
+`status = 'Parsing'` write and each insert the full batch.
+
+- **`app/ingestion/runner.py` (fixed):** the parse now claims the ingestion
+  with a conditional UPDATE
+  (`SET status = 'Parsing' WHERE ingestion_id = ? AND company_id = ? AND
+  status != 'Parsing'`) - a concurrent or repeated call sees `rowcount == 0`
+  and returns `Already Parsing` instead of extracting again. Before inserting
+  the new batch it deletes the ingestion's still-`Pending` rows, so a re-parse
+  *replaces* the candidate set instead of appending a duplicate copy.
+  Reviewed rows (`Approved` / `Rejected` / `Edited & Approved`) are preserved -
+  they carry the audit trail and the review decision.
+- **Tests:** 5 new tests in `tests/test_ingestion.py` covering repeated-parse
+  dedup, the in-flight no-op guard, reviewed-row preservation across re-parse,
+  company-ownership enforcement, and the failed-parse path leaving no orphaned
+  pending rows.
 
 ### Phase 4: Conditional background-writer updates (DB-09) - IMPLEMENTED (2026-08-19)
 
@@ -750,19 +775,22 @@ every read/write path.
 - **Tests:** `tests/test_tenancy.py` (10 tests) seeds two companies with
   identically-shaped data and verifies list isolation (dashboard, personnel,
   tool crib, MEL, history) plus IDOR rejection (telemetry poll/history,
-  reasoner, fault resolution against foreign IDs). Full suite: 42 tests.
+  reasoner, fault resolution against foreign IDs). `tests/test_ingestion.py`
+  (5 tests, Phase 5b) covers parse idempotency, the in-flight guard,
+  reviewed-row preservation, ownership enforcement, and the failed-parse
+  path. Full suite: 47 tests.
 - Backup of the pre-tenancy database: `camp_system.db.pre-3b.bak` (the 010
   migration is applied to a copy first, then the live file once verified).
 
 ## Test Plan
 
-*Phases 2A-5 delivered automated coverage in `tests/test_migrations.py`,
-`tests/test_app_factory.py`, `tests/test_background_writers.py`, and
-`tests/test_tenancy.py` (fresh
+*Phases 2A-5b delivered automated coverage in `tests/test_migrations.py`,
+`tests/test_app_factory.py`, `tests/test_background_writers.py`,
+`tests/test_tenancy.py`, and `tests/test_ingestion.py` (fresh
 migration, idempotency, orphan-repair upgrade, FK enforcement, indexes, WAL,
 busy_timeout, app-factory test isolation, uniqueness/idempotency guards,
 conditional background-writer updates, stable aircraft references,
-cross-company isolation). Run with
+cross-company isolation, ingestion parse idempotency). Run with
 `python -m pytest tests`. The manual scenarios below remain relevant for
 broader regression coverage.*
 
